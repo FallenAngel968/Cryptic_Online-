@@ -1,75 +1,94 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
-
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+import React from 'react';
+import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View, ImageSourcePropType } from 'react-native';
 
 export default function HomeScreen() {
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
+    <ScrollView style={styles.container}>
+      <View style={styles.header}>
+        <Image source={require('@/assets/images/Logo.png')} style={styles.leftImage} />
+        <Image source={require('@/assets/images/banner.jpg')} style={styles.rightImage} />
+      </View>
+
+      <Text style={styles.title}>LO ÚLTIMO EN MODA</Text>
+
+      <View style={styles.productsRow}>
+        <Product name="PLAYERA 1" price="890" imageUri={require('@/assets/images/shirt1.png')} />
+        <Product name="PLAYERA 2" price="850" imageUri={require('@/assets/images/shirt2.png')} />
+        <Product name="PLAYERA 3" price="950" imageUri={require('@/assets/images/shirt3.png')} />
+      </View>
+
+      <View style={styles.promo}>
+        <Text style={styles.title}>PREVENTA ACTIVA</Text>
         <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
+          source={{ uri: 'https://via.placeholder.com/200?text=Promo' }}
+          style={styles.promoImage}
         />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+        <TouchableOpacity style={styles.button}>
+          <Text style={styles.buttonText}>COMPRAR AHORA</Text>
+        </TouchableOpacity>
+      </View>
+
+      <Text style={styles.title}>LO ÚLTIMO EN MODA</Text>
+
+      <View style={styles.productsRow}>
+        <Product name="PLAYERA 4" price="890" imageUri={require('@/assets/images/shirt4.png')} />
+        <Product name="PLAYERA 5" price="850" imageUri={require('@/assets/images/shirt1.png')} />
+        <Product name="PLAYERA 6" price="950" imageUri={require('@/assets/images/shirt2.png')}  />
+      </View>
+    </ScrollView>
+  );
+}
+
+type ProductProps = {
+  name: string;
+  price: string;
+  imageUri: ImageSourcePropType | string;
+};
+
+function Product({ name, price, imageUri }: ProductProps) {
+  const source = typeof imageUri === 'string' ? { uri: imageUri } : imageUri;
+
+  return (
+    <View style={styles.product}>
+      <Image source={source} style={styles.productImage} />
+      <Text>{name}</Text>
+      <Text>${price} MXN</Text>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
+  container: { backgroundColor: '#fff' },
+  header: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 8,
+    paddingHorizontal: 10,
+    backgroundColor: '#000',
+    height: 150, // altura del contenedor para que las imágenes encajen bien
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  leftImage: {
+    width: 500,   // ancho mayor para imagen rectangular
+    height: 150,      
+    //aspectRatio: 3,     // ancho:alto = 3:1 (ajusta según la imagen)
+    resizeMode: 'stretch',
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  rightImage: {
+    width: 450,
+    height: 150,
+    //aspectRatio: 4,     // más rectangular, ajusta según la imagen
+    resizeMode: 'stretch',
   },
+  title: { fontSize: 20, fontWeight: 'bold', margin: 10 },
+  productsRow: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 20 },
+  product: { alignItems: 'center' },
+  productImage: { 
+    width: 300, 
+    height: 300, 
+    resizeMode: 'contain' 
+  },
+  promo: { alignItems: 'center', padding: 20 },
+  promoImage: { width: 200, height: 200, resizeMode: 'contain' },
+  button: { backgroundColor: 'black', padding: 10, borderRadius: 5, marginTop: 10 },
+  buttonText: { color: 'white' },
 });
