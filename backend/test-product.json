@@ -1,0 +1,8 @@
+{
+  "nombre": "iPhone de Prueba",
+  "descripcion": "Producto de prueba desde el backend",
+  "precio": 999.99,
+  "stock": 5,
+  "categoria": "Electrónicos",
+  "imagen": "https://via.placeholder.com/300x300?text=iPhone"
+}

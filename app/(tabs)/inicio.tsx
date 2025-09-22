@@ -1,9 +1,13 @@
 import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Dimensions,
   FlatList,
   Image,
+  SafeAreaView,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -11,6 +15,64 @@ import {
   useColorScheme,
   View,
 } from 'react-native';
+import PaymentAlert from '../components/PaymentAlert';
+
+export const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
+  // 🔧 CONFIGURACIÓN AUTOMÁTICA DE URL
+  let baseUrl =
+    process.env.EXPO_PUBLIC_NGROK_URL || process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+
+  // 🚨 FALLBACK URL ACTUALIZADA
+  const FALLBACK_NGROK_URL = 'https://c0b354d3a10d.ngrok-free.app';
+
+  // 🌐 DETECCIÓN AUTOMÁTICA DE ENTORNO
+  if (!process.env.EXPO_PUBLIC_NGROK_URL && !process.env.EXPO_PUBLIC_API_URL) {
+    console.log('⚠️ Variables de entorno no disponibles, usando fallback');
+    baseUrl = FALLBACK_NGROK_URL;
+  }
+
+  console.log('🔗 URL Base detectada:', baseUrl);
+  console.log('🔍 Variables disponibles:', {
+    NGROK: process.env.EXPO_PUBLIC_NGROK_URL,
+    API: process.env.EXPO_PUBLIC_API_URL,
+  });
+
+  try {
+    const fullUrl = `${baseUrl}${endpoint}`;
+    console.log('🛍️ API Request desde inicio a:', fullUrl);
+
+    const response = await fetch(fullUrl, {
+      headers: {
+        'Content-Type': 'application/json',
+        // 🔒 HEADERS PARA NGROK
+        'ngrok-skip-browser-warning': 'true',
+        'User-Agent': 'CrypticOnline-Mobile-App',
+        ...options.headers,
+      },
+      ...options,
+    });
+
+    const data = await response.json();
+    console.log('📡 Response desde inicio:', { status: response.status, ok: response.ok });
+
+    return { response, data };
+  } catch (error) {
+    console.error('❌ API Request Error desde inicio:', error);
+    throw error;
+  }
+};
+
+// Interfaces
+interface Product {
+  id: number;
+  name: string;
+  description: string;
+  price: number;
+  stock: number;
+  imageUrl: string;
+  userId: number;
+  createdAt: string;
+}
 
 const HomeScreen = () => {
   const router = useRouter();
@@ -18,54 +80,124 @@ const HomeScreen = () => {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
 
-  // Datos de productos
-  const products = [
-    {
-      id: '1',
-      name: 'SHIRT ARAB',
-      price: '101 MXN',
-      season: 'TEMPORADA 2',
-      image: require('../../assets/images/shirt1.png'),
-    },
-    {
-      id: '2',
-      name: 'SHIRT DIAMOND TEETH',
-      price: '102 MXN',
-      season: 'TEMPORADA 3',
-      image: require('../../assets/images/shirt2.png'),
-    },
-    {
-      id: '3',
-      name: 'BOLL SHIRT 8',
-      price: '103 MXN',
-      season: 'TEMPORADA 4',
-      image: require('../../assets/images/shirt3.png'),
-    },
-  ];
+  // Estados para productos reales
+  const [products, setProducts] = useState<Product[]>([]);
+  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [modal, setModal] = useState({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+    onClose: () => {},
+    buttonText: 'OK',
+  });
 
-  const featuredProducts = [
-    {
-      id: '4',
-      name: 'SHIRT ARAB',
-      price: '101 MXN',
-      image: require('../../assets/images/shirt1.png'),
-    },
-    {
-      id: '5',
-      name: 'SHIRT DIAMOND TEETH',
-      price: '102 MXN',
-      image: require('../../assets/images/shirt2.png'),
-    },
-    {
-      id: '6',
-      name: 'BOLL SHIRT 8',
-      price: '103 MXN',
-      image: require('../../assets/images/shirt3.png'),
-    },
-  ];
+  // Cargar productos reales al iniciar y refrescar periódicamente
+  useEffect(() => {
+    // Añadir un pequeño delay para evitar problemas de timing
+    const timer = setTimeout(() => {
+      loadProducts();
+    }, 1000); // 1 segundo de delay
 
-  const navigateToProduct = (id: string) => {
-    router.push({ pathname: '../productos', params: { id } });
+    // Polling automático cada 5 segundos
+    const interval = setInterval(() => {
+      loadProducts();
+    }, 5000); // 5 segundos
+
+    return () => {
+      clearTimeout(timer);
+      clearInterval(interval);
+    };
+  }, []);
+
+  const loadProducts = async () => {
+    try {
+      console.log('🛍️ Cargando productos para la tienda...');
+      console.log('🔍 Usando URL automática desde variables de entorno');
+
+      // 📝 NOTA: Usando /api/simple-products porque funciona para ambas pantallas
+      // TODO: Investigar por qué /api/products no funciona (cuando tengamos tiempo)
+      const { response, data } = await apiRequest('/api/simple-products', {
+        method: 'GET',
+      });
+
+      console.log('📡 Response completa desde inicio:', {
+        ok: response.ok,
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries()),
+      });
+      console.log('📦 Data recibida desde inicio:', data);
+
+      if (response.ok && data.products) {
+        // Filtrar solo productos con stock disponible
+        const availableProducts = data.products.filter((product: Product) => product.stock > 0);
+
+        console.log(`✅ ${availableProducts.length} productos disponibles cargados en inicio`);
+
+        // Separar productos: los más recientes y los destacados
+        const recentProducts = availableProducts.slice(0, 6); // Primeros 6 para "LO ÚLTIMO"
+        const topProducts = availableProducts.slice(-6); // Últimos 6 para "MÁS VENDIDOS"
+
+        setProducts(recentProducts);
+        setFeaturedProducts(topProducts);
+      } else {
+        console.error('❌ Error cargando productos desde inicio:', {
+          status: response.status,
+          statusText: response.statusText,
+          data,
+        });
+        // Mantener productos de ejemplo si hay error
+        setProducts([]);
+        setFeaturedProducts([]);
+      }
+    } catch (error) {
+      showModal(
+        'error',
+        'Error de conexión',
+        'No se pudo cargar los productos. Verifica tu conexión.'
+      );
+      console.error('❌ Error de conexión desde inicio:', error);
+      console.error('❌ Tipo de error:', error?.constructor?.name);
+      console.error('❌ Mensaje de error:', error instanceof Error ? error.message : 'Unknown');
+
+      // Mantener productos de ejemplo si hay error de conexión
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const navigateToProduct = (product: Product) => {
+    router.push({
+      pathname: '/producto/producto-detalle',
+      params: {
+        id: product.id.toString(),
+        name: product.name,
+        price: product.price.toString(),
+        description: product.description,
+        imageUrl: product.imageUrl,
+        stock: product.stock.toString(),
+      },
+    });
+  };
+
+  const showModal = (
+    type: 'success' | 'error',
+    title: string,
+    message: string,
+    onClose?: () => void,
+    buttonText?: string
+  ) => {
+    setModal({
+      visible: true,
+      type,
+      title,
+      message,
+      onClose: onClose || (() => setModal({ ...modal, visible: false })),
+      buttonText: buttonText || 'OK',
+    });
   };
 
   // Ajuste responsivo para todas las tarjetas
@@ -84,54 +216,84 @@ const HomeScreen = () => {
     marginBottom: -40,
   };
 
-  interface Product {
-    id: string;
-    name: string;
-    price: string;
-    season?: string;
-    image: any;
-  }
-
   const navigateToProductDetail = (product: Product) => {
+    console.log('🔍 Navegando al producto:', {
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      imageUrl: product.imageUrl,
+    });
+
     router.push({
       pathname: '/producto/producto-detalle',
       params: {
-        id: product.id,
+        id: product.id.toString(),
         name: product.name,
-        price: product.price,
-        image: product.image && typeof product.image === 'number' ? product.image : undefined,
+        price: product.price.toString(),
+        description: product.description,
+        image: product.imageUrl, // 📸 PASAR IMAGEN CORRECTAMENTE
+        stock: product.stock.toString(),
       },
     });
   };
 
   return (
     <View style={[styles.container, { backgroundColor: isDark ? '#000' : '#fff' }]}>
-      {/* Header transparente superpuesto */}
-      <View
-        style={[
-          styles.header,
-          {
-            backgroundColor: 'transparent',
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            zIndex: 2,
-          },
-        ]}
-      >
-        <Image source={require('../../assets/images/Logo.png')} style={styles.companyLogo} />
-        <View style={[styles.searchContainer, { justifyContent: 'center', alignItems: 'center' }]}>
-          <TextInput
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+
+      {/* Header con SafeArea */}
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+          {/* Logo - Solo en móvil o si el ancho es pequeño */}
+          {screenWidth < 768 && (
+            <Image source={require('../../assets/images/Logo.png')} style={styles.companyLogo} />
+          )}
+
+          {/* Container de búsqueda adaptivo */}
+          <View
             style={[
-              styles.searchBar,
-              { width: screenWidth < 500 ? '80%' : 350, alignSelf: 'center' },
+              styles.searchContainer,
+              screenWidth >= 768 ? styles.searchContainerDesktop : styles.searchContainerMobile,
             ]}
-            placeholder="Buscar productos..."
-            placeholderTextColor="#999"
-          />
+          >
+            {/* Logo para desktop */}
+            {screenWidth >= 768 && (
+              <Image
+                source={require('../../assets/images/Logo.png')}
+                style={styles.companyLogoDesktop}
+              />
+            )}
+
+            <TextInput
+              style={[
+                styles.searchBar,
+                screenWidth >= 768 ? styles.searchBarDesktop : styles.searchBarMobile,
+              ]}
+              placeholder="Buscar productos..."
+              placeholderTextColor="#999"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+
+            {/* Botón de búsqueda para desktop */}
+            {screenWidth >= 768 && (
+              <TouchableOpacity
+                style={[styles.searchButton, { backgroundColor: isDark ? '#fff' : '#000' }]}
+              >
+                <Image
+                  source={
+                    isDark
+                      ? require('../../assets/images/search.png') // Ícono negro para fondo blanco
+                      : require('../../assets/images/searchwhite.png') // Ícono blanco para fondo negro
+                  }
+                  style={styles.searchIcon}
+                  resizeMode="contain"
+                />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
-      </View>
+      </SafeAreaView>
       {/* Contenido principal */}
       <ScrollView style={styles.content}>
         {/* Banner principal */}
@@ -146,24 +308,53 @@ const HomeScreen = () => {
 
         {/* Sección LO ÚLTIMO EN MODA */}
         <Text style={styles.sectionTitle}>LO ÚLTIMO EN MODA</Text>
-        <FlatList
-          horizontal
-          data={products}
-          renderItem={({ item }) => (
+
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#fff" />
+            <Text style={styles.loadingText}>Cargando productos...</Text>
+          </View>
+        ) : products.length === 0 ? (
+          <View style={styles.loadingContainer}>
+            <Text style={styles.loadingText}>No se pudieron cargar los productos</Text>
             <TouchableOpacity
-              style={productCardStyle}
-              onPress={() => navigateToProductDetail(item)}
+              style={styles.retryButton}
+              onPress={() => {
+                setLoading(true);
+                loadProducts();
+              }}
             >
-              <Image source={item.image} style={productImageStyle} resizeMode="contain" />
-              <Text style={styles.productName}>{item.name}</Text>
-              <Text style={styles.productPrice}>{item.price}</Text>
-              <Text style={styles.productSeason}>{item.season}</Text>
+              <Text style={styles.retryButtonText}>Reintentar</Text>
             </TouchableOpacity>
-          )}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.productsContainer}
-          showsHorizontalScrollIndicator={false}
-        />
+          </View>
+        ) : (
+          <FlatList
+            horizontal
+            data={products}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={productCardStyle}
+                onPress={() => navigateToProductDetail(item)}
+              >
+                <Image
+                  source={
+                    item.imageUrl
+                      ? { uri: item.imageUrl }
+                      : { uri: 'https://via.placeholder.com/300x300?text=Producto' }
+                  }
+                  style={productImageStyle}
+                  resizeMode="contain"
+                />
+                <Text style={styles.productName}>{item.name}</Text>
+                <Text style={styles.productPrice}>${item.price.toFixed(2)}</Text>
+                <Text style={styles.productSeason}>Stock: {item.stock}</Text>
+              </TouchableOpacity>
+            )}
+            keyExtractor={(item) => item.id.toString()}
+            contentContainerStyle={styles.productsContainer}
+            showsHorizontalScrollIndicator={false}
+          />
+        )}
 
         {/* Banner de preventa */}
         <View style={styles.presaleSection}>
@@ -189,9 +380,17 @@ const HomeScreen = () => {
               style={productCardStyle}
               onPress={() => navigateToProductDetail(product)}
             >
-              <Image source={product.image} style={productImageStyle} resizeMode="contain" />
+              <Image
+                source={
+                  product.imageUrl
+                    ? { uri: product.imageUrl }
+                    : { uri: 'https://via.placeholder.com/300x300?text=Producto' }
+                }
+                style={productImageStyle}
+                resizeMode="contain"
+              />
               <Text style={styles.featuredName}>{product.name}</Text>
-              <Text style={styles.featuredPrice}>{product.price}</Text>
+              <Text style={styles.featuredPrice}>${product.price.toFixed(2)}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -202,6 +401,18 @@ const HomeScreen = () => {
           <Text style={styles.searchText}>Descubre más productos</Text>
         </View>
       </ScrollView>
+
+      <PaymentAlert
+        visible={modal.visible}
+        type={modal.type as any}
+        title={modal.title}
+        message={modal.message}
+        onPrimaryAction={() => {
+          setModal({ ...modal, visible: false });
+          modal.onClose && modal.onClose();
+        }}
+        primaryText={modal.buttonText}
+      />
     </View>
   );
 };
@@ -209,6 +420,9 @@ const HomeScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#000',
+  },
+  safeArea: {
     backgroundColor: '#000',
   },
   header: {
@@ -221,14 +435,34 @@ const styles = StyleSheet.create({
     borderBottomColor: '#333',
   },
   companyLogo: {
-    width: 150,
-    height: 150,
+    width: 80,
+    height: 80,
     marginRight: 10,
+    resizeMode: 'contain',
+  },
+  companyLogoDesktop: {
+    width: 120,
+    height: 60,
+    marginRight: 20,
     resizeMode: 'contain',
   },
   searchContainer: {
     flex: 1,
     flexDirection: 'row',
+  },
+  searchContainerMobile: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  searchContainerDesktop: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    maxWidth: 600,
+    marginHorizontal: 'auto',
   },
   searchBar: {
     flex: 1,
@@ -238,6 +472,51 @@ const styles = StyleSheet.create({
     padding: 10,
     paddingLeft: 15,
     fontSize: 16,
+  },
+  searchBarMobile: {
+    backgroundColor: '#222',
+    color: '#fff',
+    borderRadius: 20,
+    padding: 10,
+    paddingLeft: 15,
+    fontSize: 16,
+    width: '80%',
+  },
+  searchBarDesktop: {
+    flex: 1,
+    backgroundColor: '#222',
+    color: '#fff',
+    borderRadius: 25,
+    padding: 12,
+    paddingLeft: 20,
+    fontSize: 16,
+    borderWidth: 2,
+    borderColor: '#333',
+    minWidth: 300,
+    maxWidth: 500,
+  },
+  searchButton: {
+    backgroundColor: '#fff',
+    borderRadius: 25,
+    padding: 12,
+    marginLeft: 10,
+    width: 50,
+    height: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  searchButtonText: {
+    fontSize: 18,
+    color: '#fff',
+  },
+  searchIcon: {
+    width: 20,
+    height: 20,
   },
   iconsContainer: {
     flexDirection: 'row',
@@ -369,6 +648,29 @@ const styles = StyleSheet.create({
   searchText: {
     color: '#aaa',
     fontSize: 14,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 50,
+  },
+  loadingText: {
+    color: '#fff',
+    fontSize: 16,
+    marginTop: 10,
+  },
+  retryButton: {
+    backgroundColor: '#007bff',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginTop: 15,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
 

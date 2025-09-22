@@ -7,6 +7,140 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id              Int            @id @default(autoincrement())
+  nombres         String
+  apellidoPaterno String
+  apellidoMaterno String
+  email           String         @unique
+  password        String
+  telefono        String
+  calle           String
+  numero          String
+  colonia         String
+  ciudad          String
+  estado          String
+  codigoPostal    String
+  referencias     String
+  wallet          String?
+  role            String         @default("customer")
+  adminLevel      AdminLevel?    // Nivel de admin si role es admin
+  permissions     Json?          // Permisos específicos en JSON
+  isActive        Boolean        @default(true)
+  createdAt       DateTime       @default(now())
+  createdBy       Int?           // ID del admin que creó este usuario
+  notifications   Notification[]
+  orders          Order[]        @relation("UserOrders")
+  paymentCards    PaymentCard[]
+  products        Product[]      @relation("UserProducts")
+  creator         User?          @relation("AdminCreated", fields: [createdBy], references: [id])
+  createdUsers    User[]         @relation("AdminCreated")
+}
+
+model Product {
+  id          Int         @id @default(autoincrement())
+  name        String
+  description String
+  price       Float
+  imageUrl    String
+  userId      Int
+  createdAt   DateTime    @default(now())
+  stock       Int         @default(0)
+  discounts   Discount[]
+  orderItems  OrderItem[]
+  user        User        @relation("UserProducts", fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Discount {
+  id         Int      @id @default(autoincrement())
+  productId  Int
+  percentage Float
+  startDate  DateTime
+  endDate    DateTime
+  createdAt  DateTime @default(now())
+  product    Product  @relation(fields: [productId], references: [id])
+}
+
+model Order {
+  id             Int            @id @default(autoincrement())
+  userId         Int
+  txHash         String?
+  createdAt      DateTime       @default(now())
+  cancelledAt    DateTime?
+  paidAt         DateTime?
+  paymentId      String?
+  paymentMethod  PaymentMethod?
+  refundedAt     DateTime?
+  total          Float
+  status         OrderStatus    @default(PENDING)
+  user           User           @relation("UserOrders", fields: [userId], references: [id], onDelete: Cascade)
+  orderItems     OrderItem[]
+  paymentDetails Payment[]
+}
+
+model OrderItem {
+  id        Int     @id @default(autoincrement())
+  orderId   Int
+  productId Int
+  quantity  Int     @default(1)
+  price     Float
+  order     Order   @relation(fields: [orderId], references: [id])
+  product   Product @relation(fields: [productId], references: [id])
+
+  @@unique([orderId, productId])
+}
+
+model Payment {
+  id          Int      @id @default(autoincrement())
+  orderId     Int
+  provider    String
+  status      String
+  referenceId String?  @unique
+  amount      Float
+  createdAt   DateTime @default(now())
+  order       Order    @relation(fields: [orderId], references: [id])
+}
+
+model PaymentCard {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  cardNumber String
+  cardHolder String
+  expiryDate String
+  cardType   String
+  isDefault  Boolean  @default(false)
+  isActive   Boolean  @default(true)
+  tokenId    String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  type      String
+  title     String
+  message   String
+  data      Json?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Promotion {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String
+  imageUrl    String?
+  isActive    Boolean  @default(true)
+  startDate   DateTime
+  endDate     DateTime
+  createdAt   DateTime @default(now())
+}
+
 enum OrderStatus {
   PENDING
   PAID
@@ -21,113 +155,9 @@ enum PaymentMethod {
   CRYPTO
 }
 
-model User {
-  id              Int       @id @default(autoincrement())
-  nombres         String
-  apellidoPaterno String
-  apellidoMaterno String
-  email           String    @unique
-  password        String
-  telefono        String
-  calle           String
-  numero          String
-  colonia         String
-  ciudad          String
-  estado          String
-  codigoPostal    String
-  referencias     String
-  wallet          String?
-  role            String    @default("customer")
-  isActive        Boolean   @default(true)
-  orders          Order[]   @relation(name: "UserOrders")
-  products        Product[] @relation(name: "UserProducts")
-  notifications   Notification[]
-  createdAt       DateTime  @default(now())
-}
-
-model Product {
-  id              Int         @id @default(autoincrement())
-  name            String
-  description     String
-  price           Float
-  imageUrl        String
-  userId          Int
-  stock           Int         @default(0)
-  user            User  @relation(name: "UserProducts", fields: [userId], references: [id], onDelete: Cascade)
-  createdAt       DateTime    @default(now())
-  orderItems      OrderItem[]
-  discounts       Discount[]
-}
-
-model Discount {
-  id          Int       @id @default(autoincrement())
-  productId   Int
-  product     Product   @relation(fields: [productId], references: [id])
-  percentage  Float     // Ej: 10.0 para 10%
-  startDate   DateTime
-  endDate     DateTime
-  createdAt   DateTime  @default(now())
-}
-
-model Order {
-  id             Int           @id @default(autoincrement())
-  userId         Int
-  user           User  @relation(name: "UserOrders", fields: [userId], references: [id], onDelete: Cascade)
-  status         OrderStatus   @default(PENDING)
-  total          Float
-  paymentMethod  PaymentMethod?
-  paymentId      String?       // ID externo (PayPal, MP, etc.)
-  txHash         String?       // Blockchain
-  paidAt         DateTime?
-  cancelledAt    DateTime?
-  refundedAt     DateTime?
-  createdAt      DateTime      @default(now())
-  orderItems     OrderItem[]
-  paymentDetails Payment[]
-}
-
-model OrderItem {
-  id        Int     @id @default(autoincrement())
-  orderId   Int
-  productId Int
-  quantity  Int     @default(1)
-  price     Float   // Precio congelado del producto
-  order     Order   @relation(fields: [orderId], references: [id])
-  product   Product @relation(fields: [productId], references: [id])
-
-  @@unique([orderId, productId])
-}
-
-model Payment {
-  id           Int      @id @default(autoincrement())
-  orderId      Int
-  provider     String   // Ej: PAYPAL, MERCADOPAGO
-  status       String   // Ej: PENDING, COMPLETED, FAILED
-  referenceId  String?  // ID externo del proveedor
-  amount       Float
-  createdAt    DateTime @default(now())
-  order        Order    @relation(fields: [orderId], references: [id])
-}
-
-model Notification {
-  id          Int      @id @default(autoincrement())
-  userId      Int
-  type        String   // PAYMENT, ORDER_STATUS, PROMOTION, SYSTEM
-  title       String
-  message     String
-  data        Json?    // Datos adicionales (orderId, etc.)
-  isRead      Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model Promotion {
-  id          Int      @id @default(autoincrement())
-  title       String
-  description String
-  imageUrl    String?
-  isActive    Boolean  @default(true)
-  startDate   DateTime
-  endDate     DateTime
-  createdAt   DateTime @default(now())
+enum AdminLevel {
+  SUPER_ADMIN
+  ADMIN
+  MODERATOR
+  SUPPORT
 }

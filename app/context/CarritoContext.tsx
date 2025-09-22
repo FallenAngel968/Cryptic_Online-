@@ -15,6 +15,7 @@ interface CarritoContextType {
   updateItem: (id: string, changes: Partial<CarritoItem>) => void;
   removeItem: (id: string) => void;
   clear: () => void;
+  clearCart: () => void;
 }
 
 export const CarritoContext = createContext<CarritoContextType>({
@@ -23,6 +24,7 @@ export const CarritoContext = createContext<CarritoContextType>({
   updateItem: () => {},
   removeItem: () => {},
   clear: () => {},
+  clearCart: () => {},
 });
 
 export function CarritoProvider({ children }: { children: React.ReactNode }) {
@@ -32,8 +34,12 @@ export function CarritoProvider({ children }: { children: React.ReactNode }) {
     setItems((prev) => prev.map((item) => (item.id === id ? { ...item, ...changes } : item)));
   const removeItem = (id: string) => setItems((prev) => prev.filter((item) => item.id !== id));
   const clear = () => setItems([]);
+  const clearCart = () => {
+    setItems([]);
+    console.log('🛒 Carrito limpiado');
+  };
   return (
-    <CarritoContext.Provider value={{ items, addItem, updateItem, removeItem, clear }}>
+    <CarritoContext.Provider value={{ items, addItem, updateItem, removeItem, clear, clearCart }}>
       {children}
     </CarritoContext.Provider>
   );
