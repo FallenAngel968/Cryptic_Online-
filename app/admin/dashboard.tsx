@@ -1,17 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  useColorScheme,
-  useWindowDimensions,
-  View,
+    ActivityIndicator,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    useColorScheme,
+    useWindowDimensions,
+    View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
 
 const apiRequest = async (
   endpoint: string,
@@ -185,10 +185,10 @@ export default function AdminDashboard() {
       <View style={[styles.content, { padding: isMobile ? 15 : 20 }]}>
         <View style={styles.header}>
           <Text style={[styles.title, { color: themeColors.textColor, fontSize: isMobile ? 24 : 28 }]}>
-            🛡️ Panel de Administración
+             Panel de Administración
           </Text>
           <Text style={[styles.subtitle, { color: themeColors.subText, fontSize: isMobile ? 14 : 16 }]}>
-            Gestiona tu tienda desde aquí
+            Gestiona la tienda desde aquí
           </Text>
         </View>
 

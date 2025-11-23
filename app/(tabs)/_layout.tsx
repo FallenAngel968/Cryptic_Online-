@@ -3,13 +3,13 @@ import { Tabs } from 'expo-router';
 
 export default function TabsLayout() {
   return (
-    <Tabs screenOptions={{ headerShown: false }}>
+    <Tabs screenOptions={{ headerShown: false, tabBarActiveTintColor: '#b12badff' }}>
       <Tabs.Screen
         name="inicio"
         options={{
           title: 'Tienda',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home-outline" size={size} color={color} />
+            <Ionicons name="home-outline" size={size} color={'#b12badff'} />
           ),
         }}
       />
@@ -18,7 +18,7 @@ export default function TabsLayout() {
         options={{
           title: 'Mi Cuenta',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-outline" size={size} color={color} />
+            <Ionicons name="person-outline" size={size} color={'#b12badff'} />
           ),
         }}
       />
@@ -26,17 +26,17 @@ export default function TabsLayout() {
         name="carrito"
         options={{
           title: 'Mi Carrito',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="cart-outline" size={size} color={color} />
+          tabBarIcon: ({  size }) => (
+            <Ionicons name="cart-outline" size={size} color={'#b12badff'} />
           ),
         }}
       />
       <Tabs.Screen
         name="notificaciones"
         options={{
-          title: 'Mis Alertas',
+          title: 'Notificaciones',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="notifications-outline" size={size} color={color} />
+            <Ionicons name="notifications-outline" size={size} color={'#b12badff'} />
           ),
         }}
       />

@@ -45,12 +45,31 @@ const apiRequest = async (
   const config: RequestInit = { method, headers: defaultHeaders };
   if (body) config.body = body;
 
-  console.log('🔗 Admin API Request URL:', url);
-  console.log('📦 Admin Request headers:', defaultHeaders);
+  console.log('🔗 Admin API Request:', { method, url });
 
-  const response = await fetch(url, config);
-  const data = await response.json();
-  return { response, data };
+  try {
+    const response = await fetch(url, config);
+    console.log('📡 Response status:', response.status, response.statusText);
+
+    // Verificar si la respuesta es JSON
+    const contentType = response.headers.get('content-type');
+    console.log('📋 Content-Type:', contentType);
+
+    let data;
+    if (contentType && contentType.includes('application/json')) {
+      data = await response.json();
+    } else {
+      // Si no es JSON, obtener el texto para debug
+      const text = await response.text();
+      console.error('❌ Respuesta no es JSON:', text.substring(0, 200));
+      data = { error: 'Respuesta inválida del servidor' };
+    }
+
+    return { response, data };
+  } catch (error) {
+    console.error('❌ Error en apiRequest:', error);
+    throw error;
+  }
 };
 
 interface Product {
@@ -60,7 +79,7 @@ interface Product {
   precio: number;
   stock: number;
   categoria?: string;
-  imagen?: string;
+  imageUrl?: string;
   disponible: boolean;
   totalSold?: number;
   totalRevenue?: number;
@@ -128,7 +147,7 @@ export default function AdminProducts() {
     precio: '',
     stock: '',
     categoria: '',
-    imagen: '',
+    imageUrl: '',
     disponible: true
   });
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -192,7 +211,7 @@ export default function AdminProducts() {
           precio: product.price,
           stock: product.stock,
           categoria: product.category || 'Sin categoría',
-          imagen: product.imageUrl, // 🔍 Asegurar que se mapee correctamente
+          imageUrl: product.imageUrl, // 🔍 Asegurar que se mapee correctamente
           disponible: product.stock > 0,
           totalSold: 0, // Por ahora en 0
           totalRevenue: 0, // Por ahora en 0
@@ -344,43 +363,47 @@ export default function AdminProducts() {
         return;
       }
 
+      console.log('🔍 DEBUG - Datos antes de enviar:', {
+        nombre: formData.nombre.trim(),
+        descripcion: formData.descripcion.trim(),
+        precio: formData.precio,
+        stock: formData.stock,
+        categoria: formData.categoria,
+        selectedImage: selectedImage ? 'SÍ' : 'NO',
+        platform: Platform.OS
+      });
+
       // Crear FormData para enviar la imagen a Firebase Storage
       const formDataToSend = new FormData();
       
       // IMPORTANTE: Usar los nombres correctos que espera el backend
       formDataToSend.append('name', formData.nombre.trim());
       formDataToSend.append('description', formData.descripcion.trim());
-      formDataToSend.append('price', formData.precio.toString());
-      formDataToSend.append('stock', formData.stock.toString());
+      formDataToSend.append('price', parseFloat(formData.precio).toString());
+      formDataToSend.append('stock', parseInt(formData.stock).toString());
       
       // Agregar categoría si existe
       if (formData.categoria) {
         formDataToSend.append('category', formData.categoria);
       }
 
-      // Configurar la imagen según la plataforma
+      // 🔧 CONFIGURAR LA IMAGEN CORRECTAMENTE
+      console.log('🖼️ Procesando imagen para FormData...');
+      console.log('   - URL de imagen:', selectedImage.substring(0, 50) + '...');
+      console.log('   - Tipo: ', selectedImage.startsWith('blob:') ? 'blob' : selectedImage.startsWith('http') ? 'http' : 'uri');
+
       if (Platform.OS === 'web') {
         // En web, convertir blob a File si es necesario
-        if (selectedImage.startsWith('blob:')) {
+        if (selectedImage.startsWith('blob:') || selectedImage.startsWith('http')) {
           try {
+            console.log('🔄 Convirtiendo blob/http a File...');
             const response = await fetch(selectedImage);
             const blob = await response.blob();
             const file = new File([blob], `product-${Date.now()}.jpg`, { type: 'image/jpeg' });
             formDataToSend.append('image', file);
+            console.log('✅ Archivo convertido exitosamente');
           } catch (blobError) {
             console.error('❌ Error procesando blob:', blobError);
-            Alert.alert('Error', 'No se pudo procesar la imagen seleccionada');
-            return;
-          }
-        } else if (selectedImage.startsWith('http')) {
-          // Si es una URL de Object.createObjectURL
-          try {
-            const response = await fetch(selectedImage);
-            const blob = await response.blob();
-            const file = new File([blob], `product-${Date.now()}.jpg`, { type: 'image/jpeg' });
-            formDataToSend.append('image', file);
-          } catch (urlError) {
-            console.error('❌ Error procesando URL de objeto:', urlError);
             Alert.alert('Error', 'No se pudo procesar la imagen seleccionada');
             return;
           }
@@ -392,6 +415,7 @@ export default function AdminProducts() {
             name: `product-${Date.now()}.jpg`,
           } as any;
           formDataToSend.append('image', imageFile);
+          console.log('✅ Imagen en fallback agregada');
         }
       } else {
         // En móvil, usar la URI directamente
@@ -401,65 +425,37 @@ export default function AdminProducts() {
           name: `product-${Date.now()}.jpg`,
         } as any;
         formDataToSend.append('image', imageFile);
+        console.log('✅ Imagen móvil agregada');
       }
 
-      console.log('📤 Datos del producto a enviar a Firebase:', {
-        name: formData.nombre.trim(),
-        description: formData.descripcion.trim(),
-        price: formData.precio,
-        stock: formData.stock,
-        category: formData.categoria,
-        hasImage: !!selectedImage,
-        platform: Platform.OS,
-        imageType: selectedImage.startsWith('blob:') ? 'blob' : selectedImage.startsWith('http') ? 'object-url' : 'uri'
-      });
+      console.log('📤 FormData preparado. Campos:');
+      console.log('   - name:', formData.nombre.trim());
+      console.log('   - description:', formData.descripcion.trim());
+      console.log('   - price:', parseFloat(formData.precio));
+      console.log('   - stock:', parseInt(formData.stock));
+      console.log('   - category:', formData.categoria || 'N/A');
+      console.log('   - image: SÍ');
 
-      console.log('📤 Enviando producto con imagen a Firebase Storage...');
-      console.log('🔗 URL del endpoint:', `/api/products/create-with-firebase`);
-      console.log('🔑 Token presente:', !!token);
-      
-      // Configurar headers apropiados para cada plataforma
+      // Configurar headers apropiados
       const headers: Record<string, string> = {
         'Authorization': `Bearer ${token}`,
         'ngrok-skip-browser-warning': 'true',
       };
 
-      // En móvil, no establecer Content-Type manualmente para FormData
-      if (Platform.OS === 'web') {
-        // En web, dejar que el navegador establezca el Content-Type con boundary
-        // No establecer manualmente para FormData
-      }
-      
+      console.log('🚀 Enviando solicitud al backend...');
       const { response, data } = await apiRequest('/api/products/create-with-firebase', {
         method: 'POST',
         headers,
         body: formDataToSend,
       });
 
-      console.log('📡 Respuesta completa del servidor:', { 
-        status: response.status, 
-        statusText: response.statusText,
-        ok: response.ok,
-        data 
-      });
+      console.log('📡 Respuesta del servidor:');
+      console.log('   - Status:', response.status);
+      console.log('   - OK:', response.ok);
+      console.log('   - Data:', JSON.stringify(data, null, 2));
 
-      if (response.ok) {
-        console.log('✅ Producto creado y imagen subida a Firebase:', data);
-        
-        // 🔍 DEBUGGING: Verificar que la imagen se guardó correctamente
-        if (data.product && data.product.imageUrl) {
-          console.log('🖼️ URL de imagen generada por Firebase:', data.product.imageUrl);
-          console.log('🔗 Imagen accesible en:', data.product.imageUrl);
-          
-          // Verificar que la URL es válida
-          if (data.product.imageUrl.includes('firebase') || data.product.imageUrl.includes('storage.googleapis.com')) {
-            console.log('✅ CONFIRMADO: Imagen guardada en Firebase Storage');
-          } else {
-            console.log('⚠️ ADVERTENCIA: La URL no parece ser de Firebase Storage');
-          }
-        } else {
-          console.log('❌ ERROR: No se recibió URL de imagen en la respuesta');
-        }
+      if (response.ok && data.success) {
+        console.log('✅ Producto creado exitosamente:', data.product);
         
         Alert.alert(
           'Éxito',
@@ -470,13 +466,32 @@ export default function AdminProducts() {
         setSelectedImage(null);
         loadProducts();
         loadStats();
+      } else if (response.ok && data.product) {
+        console.log('✅ Producto creado (sin success flag):', data.product);
+        
+        Alert.alert(
+          'Éxito',
+          'Producto creado exitosamente'
+        );
+        
+        closeModal();
+        setSelectedImage(null);
+        loadProducts();
+        loadStats();
       } else {
-        console.error('❌ Error creando producto:', data);
-        Alert.alert('Error', data.error || 'No se pudo crear el producto');
+        console.error('❌ Error del servidor:', {
+          status: response.status,
+          statusText: response.statusText,
+          data
+        });
+        Alert.alert(
+          'Error', 
+          data.error || data.message || `Error ${response.status}: No se pudo crear el producto`
+        );
       }
     } catch (error) {
-      console.error('❌ Error de conexión:', error);
-      Alert.alert('Error', 'Error de conexión. Verifica tu internet.');
+      console.error('❌ Error en createProductWithFirebase:', error);
+      Alert.alert('Error', error instanceof Error ? error.message : 'Error de conexión');
     } finally {
       setLoadingImage(false);
     }
@@ -643,56 +658,51 @@ export default function AdminProducts() {
         return;
       }
 
-      // DECISIÓN: Usar Firebase Storage si hay imagen seleccionada O si es edición
-      if (selectedImage || isEditing) {
-        console.log('📤 Usando Firebase Storage...');
-        if (isEditing) {
-          await updateProductWithFirebase();
-        } else {
-          await createProductWithFirebase();
-        }
+      // DECISIÓN: Usar Firebase Storage si hay imagen seleccionada
+      if (selectedImage && !isEditing) {
+        console.log('📤 Usando Firebase Storage para nuevo producto...');
+        await createProductWithFirebase();
+        return;
+      }
+
+      if (selectedImage && isEditing) {
+        console.log('📝 Actualizando con nueva imagen en Firebase...');
+        await updateProductWithFirebase();
         return;
       }
 
       // Fallback: Si no hay imagen nueva, usar API simple
       const productData = {
-        nombre: formData.nombre.trim(),
-        descripcion: formData.descripcion.trim(),
-        precio: parseFloat(formData.precio),
+        name: formData.nombre.trim(),
+        description: formData.descripcion.trim(),
+        price: parseFloat(formData.precio),
         stock: parseInt(formData.stock),
-        categoria: formData.categoria,
-        imagen: formData.imagen || ''
+        category: formData.categoria || 'Sin categoría',
+        imageUrl: formData.imagen || ''
       };
 
-      console.log('💾 Guardando producto sin imagen nueva:', productData);
+      console.log('💾 Guardando producto:', { method: isEditing ? 'PUT' : 'POST', data: productData });
 
-      let response, data;
+      let endpoint: string;
+      let method: string;
 
       if (isEditing && selectedProduct) {
-        // Actualizar producto existente sin nueva imagen
-        console.log('📝 Actualizando producto ID:', selectedProduct.id);
-        const result = await apiRequest(`/api/simple-products/${selectedProduct.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(productData),
-        });
-        response = result.response;
-        data = result.data;
+        endpoint = `/api/simple-products/${selectedProduct.id}`;
+        method = 'PUT';
       } else {
-        // Crear nuevo producto usando la API simple
-        console.log('➕ Creando nuevo producto sin imagen');
-        const result = await apiRequest('/api/simple-products/create', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(productData),
-        });
-        response = result.response;
-        data = result.data;
+        endpoint = '/api/simple-products/create'; // ← CAMBIAR AQUÍ
+        method = 'POST';
       }
 
-      console.log('📡 Respuesta del servidor:', { status: response.status, data });
+      const { response, data } = await apiRequest(endpoint, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(productData),
+      });
 
-      if (response.ok) {
+      console.log('📡 Respuesta:', { status: response.status, ok: response.ok, data });
+
+      if (response.ok && data.product) {
         Alert.alert(
           'Éxito', 
           `Producto ${isEditing ? 'actualizado' : 'creado'} correctamente`
@@ -700,52 +710,52 @@ export default function AdminProducts() {
         closeModal();
         setSelectedImage(null);
         loadProducts();
-        loadStats();
+      } else if (response.ok && data.success) {
+        Alert.alert('Éxito', `Producto ${isEditing ? 'actualizado' : 'creado'} correctamente`);
+        closeModal();
+        setSelectedImage(null);
+        loadProducts();
       } else {
         console.error('❌ Error del servidor:', data);
-        Alert.alert('Error', data.error || 'Error al guardar el producto');
+        Alert.alert('Error', data.error || data.message || 'Error al guardar el producto');
       }
     } catch (error) {
       console.error('❌ Error guardando producto:', error);
-      Alert.alert('Error', 'Error de conexión');
+      Alert.alert('Error', error instanceof Error ? error.message : 'Error de conexión');
     }
   };
 
   const confirmDeleteProduct = async () => {
     if (!productToDelete) return;
     
-    // DECISIÓN: Siempre usar Firebase Storage para eliminación si el producto tiene imagen
-    if (productToDelete.imagen && (
-      productToDelete.imagen.includes('firebase') || 
-      productToDelete.imagen.includes('storage.googleapis.com')
-    )) {
-      console.log('🗑️ Eliminando producto con imagen de Firebase Storage');
-      await deleteProductWithFirebase(productToDelete);
-    } else {
-      // Usar API simple para productos sin imagen de Firebase
-      try {
-        console.log('🗑️ Eliminando producto ID:', productToDelete.id);
-        const { response, data } = await apiRequest(`/api/simple-products/${productToDelete.id}`, {
-          method: 'DELETE',
-        });
+    try {
+      setLoading(true);
+      console.log('🗑️ Eliminando producto ID:', productToDelete.id);
 
-        console.log('📡 Respuesta eliminación:', { status: response.status, data });
+      const endpoint = `/api/simple-products/${productToDelete.id}`;
+      console.log('🔗 Endpoint:', endpoint);
 
-        if (response.ok) {
-          console.log('✅ Producto eliminado exitosamente');
-          loadProducts(); // Recargar lista
-          setShowDeleteModal(false);
-          setProductToDelete(null);
-          
-          Alert.alert('Éxito', data.message || 'Producto eliminado');
-        } else {
-          console.error('❌ Error eliminando:', data);
-          Alert.alert('Error', data.error || 'Error al eliminar');
-        }
-      } catch (error) {
-        console.error('❌ Error eliminando producto:', error);
-        Alert.alert('Error', 'Error de conexión');
+      const { response, data } = await apiRequest(endpoint, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      console.log('📡 Respuesta eliminación:', { status: response.status, ok: response.ok, data });
+
+      if (response.ok) {
+        Alert.alert('Éxito', 'Producto eliminado correctamente');
+        setShowDeleteModal(false);
+        setProductToDelete(null);
+        loadProducts();
+      } else {
+        console.error('❌ Error eliminando:', data);
+        Alert.alert('Error', data.error || data.message || 'Error al eliminar');
       }
+    } catch (error) {
+      console.error('❌ Error eliminando producto:', error);
+      Alert.alert('Error', error instanceof Error ? error.message : 'Error de conexión');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -1027,7 +1037,7 @@ export default function AdminProducts() {
       <View style={styles.header}>
         <View>
           <Text style={[styles.pageTitle, { color: themeColors.textColor }]}>
-            🏷️ Gestión de Productos
+            Gestión de Productos
           </Text>
           <Text style={[styles.pageSubtitle, { color: themeColors.subText }]}>
             {stats.totalProducts} productos • {stats.activeProducts} activos

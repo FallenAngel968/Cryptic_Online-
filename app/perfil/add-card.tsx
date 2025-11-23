@@ -183,141 +183,139 @@ export default function AddCardScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardAvoid}
         >
-          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-            <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-              <View style={[styles.formContainer, { backgroundColor: isDark ? '#111' : '#fff' }]}>
-                <Text style={[styles.title, { color: isDark ? '#fff' : '#000' }]}>
-                  Información de la Tarjeta
+          <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+            <View style={[styles.formContainer, { backgroundColor: isDark ? '#111' : '#fff' }]}>
+              <Text style={[styles.title, { color: isDark ? '#fff' : '#000' }]}>
+                Información de la Tarjeta
+              </Text>
+
+              {/* Número de tarjeta */}
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, { color: isDark ? '#ccc' : '#666' }]}>
+                  Número de Tarjeta
                 </Text>
-
-                {/* Número de tarjeta */}
-                <View style={styles.inputGroup}>
-                  <Text style={[styles.label, { color: isDark ? '#ccc' : '#666' }]}>
-                    Número de Tarjeta
-                  </Text>
-                  <TextInput
-                    style={[
-                      styles.input,
-                      {
-                        backgroundColor: isDark ? '#222' : '#f8f9fa',
-                        color: isDark ? '#fff' : '#000',
-                        borderColor: isDark ? '#333' : '#e9ecef',
-                      },
-                    ]}
-                    value={formData.cardNumber}
-                    onChangeText={(text) =>
-                      setFormData({ ...formData, cardNumber: formatCardNumber(text) })
-                    }
-                    placeholder="1234 5678 9012 3456"
-                    placeholderTextColor={isDark ? '#666' : '#999'}
-                    keyboardType="numeric"
-                    maxLength={19}
-                  />
-                </View>
-
-                {/* Nombre del titular */}
-                <View style={styles.inputGroup}>
-                  <Text style={[styles.label, { color: isDark ? '#ccc' : '#666' }]}>
-                    Nombre del Titular
-                  </Text>
-                  <TextInput
-                    style={[
-                      styles.input,
-                      {
-                        backgroundColor: isDark ? '#222' : '#f8f9fa',
-                        color: isDark ? '#fff' : '#000',
-                        borderColor: isDark ? '#333' : '#e9ecef',
-                      },
-                    ]}
-                    value={formData.cardHolder}
-                    onChangeText={(text) => setFormData({ ...formData, cardHolder: text })}
-                    placeholder="JUAN PÉREZ"
-                    placeholderTextColor={isDark ? '#666' : '#999'}
-                    autoCapitalize="characters"
-                  />
-                </View>
-
-                {/* Fecha de expiración y CVV */}
-                <View style={styles.row}>
-                  <View style={[styles.inputGroup, styles.halfWidth]}>
-                    <Text style={[styles.label, { color: isDark ? '#ccc' : '#666' }]}>
-                      Fecha de Expiración
-                    </Text>
-                    <TextInput
-                      style={[
-                        styles.input,
-                        {
-                          backgroundColor: isDark ? '#222' : '#f8f9fa',
-                          color: isDark ? '#fff' : '#000',
-                          borderColor: isDark ? '#333' : '#e9ecef',
-                        },
-                      ]}
-                      value={formData.expiryDate}
-                      onChangeText={(text) =>
-                        setFormData({ ...formData, expiryDate: formatExpiryDate(text) })
-                      }
-                      placeholder="MM/YY"
-                      placeholderTextColor={isDark ? '#666' : '#999'}
-                      keyboardType="numeric"
-                      maxLength={5}
-                    />
-                  </View>
-
-                  <View style={[styles.inputGroup, styles.halfWidth]}>
-                    <Text style={[styles.label, { color: isDark ? '#ccc' : '#666' }]}>CVV</Text>
-                    <TextInput
-                      style={[
-                        styles.input,
-                        {
-                          backgroundColor: isDark ? '#222' : '#f8f9fa',
-                          color: isDark ? '#fff' : '#000',
-                          borderColor: isDark ? '#333' : '#e9ecef',
-                        },
-                      ]}
-                      value={formData.cvv}
-                      onChangeText={(text) =>
-                        setFormData({ ...formData, cvv: text.replace(/[^0-9]/g, '') })
-                      }
-                      placeholder="123"
-                      placeholderTextColor={isDark ? '#666' : '#999'}
-                      keyboardType="numeric"
-                      maxLength={4}
-                      secureTextEntry
-                    />
-                  </View>
-                </View>
-
-                {/* Información de seguridad */}
-                <View style={styles.securityInfo}>
-                  <Text style={[styles.securityText, { color: isDark ? '#666' : '#999' }]}>
-                    🔒 Tu información está protegida con encriptación de extremo a extremo
-                  </Text>
-                  <Text
-                    style={[styles.securityText, { color: isDark ? '#666' : '#999', marginTop: 4 }]}
-                  >
-                    🇲🇽 Procesado con MercadoPago México
-                  </Text>
-                </View>
-
-                {/* Botón guardar */}
-                <TouchableOpacity
+                <TextInput
                   style={[
-                    styles.saveButton,
+                    styles.input,
                     {
-                      backgroundColor: loading ? '#666' : '#007bff',
-                      opacity: loading ? 0.7 : 1,
+                      backgroundColor: isDark ? '#222' : '#f8f9fa',
+                      color: isDark ? '#fff' : '#000',
+                      borderColor: isDark ? '#333' : '#e9ecef',
                     },
                   ]}
-                  onPress={handleSubmitAsync}
-                  disabled={loading}
-                >
-                  <Text style={styles.saveButtonText}>
-                    {loading ? 'Guardando...' : 'Guardar Tarjeta'}
-                  </Text>
-                </TouchableOpacity>
+                  value={formData.cardNumber}
+                  onChangeText={(text) =>
+                    setFormData({ ...formData, cardNumber: formatCardNumber(text) })
+                  }
+                  placeholder="1234 5678 9012 3456"
+                  placeholderTextColor={isDark ? '#666' : '#999'}
+                  keyboardType="numeric"
+                  maxLength={19}
+                />
               </View>
-            </ScrollView>
-          </TouchableWithoutFeedback>
+
+              {/* Nombre del titular */}
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, { color: isDark ? '#ccc' : '#666' }]}>
+                  Nombre del Titular
+                </Text>
+                <TextInput
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: isDark ? '#222' : '#f8f9fa',
+                      color: isDark ? '#fff' : '#000',
+                      borderColor: isDark ? '#333' : '#e9ecef',
+                    },
+                  ]}
+                  value={formData.cardHolder}
+                  onChangeText={(text) => setFormData({ ...formData, cardHolder: text })}
+                  placeholder="JUAN PÉREZ"
+                  placeholderTextColor={isDark ? '#666' : '#999'}
+                  autoCapitalize="characters"
+                />
+              </View>
+
+              {/* Fecha de expiración y CVV */}
+              <View style={styles.row}>
+                <View style={[styles.inputGroup, styles.halfWidth]}>
+                  <Text style={[styles.label, { color: isDark ? '#ccc' : '#666' }]}>
+                    Fecha de Expiración
+                  </Text>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      {
+                        backgroundColor: isDark ? '#222' : '#f8f9fa',
+                        color: isDark ? '#fff' : '#000',
+                        borderColor: isDark ? '#333' : '#e9ecef',
+                      },
+                    ]}
+                    value={formData.expiryDate}
+                    onChangeText={(text) =>
+                      setFormData({ ...formData, expiryDate: formatExpiryDate(text) })
+                    }
+                    placeholder="MM/YY"
+                    placeholderTextColor={isDark ? '#666' : '#999'}
+                    keyboardType="numeric"
+                    maxLength={5}
+                  />
+                </View>
+
+                <View style={[styles.inputGroup, styles.halfWidth]}>
+                  <Text style={[styles.label, { color: isDark ? '#ccc' : '#666' }]}>CVV</Text>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      {
+                        backgroundColor: isDark ? '#222' : '#f8f9fa',
+                        color: isDark ? '#fff' : '#000',
+                        borderColor: isDark ? '#333' : '#e9ecef',
+                      },
+                    ]}
+                    value={formData.cvv}
+                    onChangeText={(text) =>
+                      setFormData({ ...formData, cvv: text.replace(/[^0-9]/g, '') })
+                    }
+                    placeholder="123"
+                    placeholderTextColor={isDark ? '#666' : '#999'}
+                    keyboardType="numeric"
+                    maxLength={4}
+                    secureTextEntry
+                  />
+                </View>
+              </View>
+
+              {/* Información de seguridad */}
+              <View style={styles.securityInfo}>
+                <Text style={[styles.securityText, { color: isDark ? '#666' : '#999' }]}>
+                  🔒 Tu información está protegida con encriptación de extremo a extremo
+                </Text>
+                <Text
+                  style={[styles.securityText, { color: isDark ? '#666' : '#999', marginTop: 4 }]}
+                >
+                  🇲🇽 Procesado con MercadoPago México
+                </Text>
+              </View>
+
+              {/* Botón guardar */}
+              <TouchableOpacity
+                style={[
+                  styles.saveButton,
+                  {
+                    backgroundColor: loading ? '#666' : '#007bff',
+                    opacity: loading ? 0.7 : 1,
+                  },
+                ]}
+                onPress={handleSubmitAsync}
+                disabled={loading}
+              >
+                <Text style={styles.saveButtonText}>
+                  {loading ? 'Guardando...' : 'Guardar Tarjeta'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
 

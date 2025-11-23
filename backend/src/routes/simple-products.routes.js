@@ -284,11 +284,22 @@ router.delete('/:id', async (req, res) => {
       });
     }
 
+    // Primero eliminamos todas las relaciones con OrderItems si existen
+    await prisma.orderItem.deleteMany({
+      where: { productId: productId }
+    });
+
+    // Luego eliminamos todas las relaciones con CartItems si existen
+    await prisma.cartItem.deleteMany({
+      where: { productId: productId }
+    });
+
+    // Finalmente eliminamos el producto
     await prisma.product.delete({
       where: { id: productId }
     });
 
-    console.log('✅ Producto eliminado:', productId);
+    console.log('✅ Producto y sus relaciones eliminados:', productId);
 
     res.json({
       success: true,

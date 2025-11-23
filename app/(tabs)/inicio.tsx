@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
@@ -14,6 +14,8 @@ import {
   TouchableOpacity,
   useColorScheme,
   View,
+  Platform,
+  Keyboard,
 } from 'react-native';
 import PaymentAlert from '../components/PaymentAlert';
 
@@ -94,6 +96,22 @@ const HomeScreen = () => {
     buttonText: 'OK',
   });
 
+  // NUEVO: estados para búsqueda (separados del carrusel)
+  const [searchResults, setSearchResults] = useState<Product[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 🔎 FILTRO DE BÚSQUEDA (INTEGRADO)
+  const filteredRecent = products.filter(product =>
+    product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    product.description.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const filteredFeatured = featuredProducts.filter(product =>
+    product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    product.description.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   // Cargar productos reales al iniciar y refrescar periódicamente
   useEffect(() => {
     // Añadir un pequeño delay para evitar problemas de timing
@@ -101,10 +119,10 @@ const HomeScreen = () => {
       loadProducts();
     }, 1000); // 1 segundo de delay
 
-    // Polling automático cada 5 segundos
+    // Polling automático cada 30 segundos
     const interval = setInterval(() => {
       loadProducts();
-    }, 5000); // 5 segundos
+    }, 5000); // 5 segundos (como lo tenías)
 
     return () => {
       clearTimeout(timer);
@@ -112,13 +130,76 @@ const HomeScreen = () => {
     };
   }, []);
 
+  const featuredListRef = useRef<FlatList>(null);
+  const recentListRef = useRef<FlatList>(null);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+
+  useEffect(() => {
+    if (featuredProducts.length === 0 || isPaused) return;
+
+    const interval = setInterval(() => {
+      let nextIndex = currentIndex + 1;
+
+      if (nextIndex >= featuredProducts.length) {
+        // Volver a inicio
+        featuredListRef.current?.scrollToIndex({ index: 0, animated: false });
+        nextIndex = 0;
+      } else {
+        featuredListRef.current?.scrollToIndex({ index: nextIndex, animated: true });
+      }
+
+      setCurrentIndex(nextIndex);
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [currentIndex, isPaused, featuredProducts]);
+
+  // Manejo de búsqueda con debounce y loader (no afecta al carrusel)
+  useEffect(() => {
+    // Si la query está vacía, limpiamos resultados / loader
+    if (!searchQuery || searchQuery.trim() === '') {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+        searchDebounceRef.current = null;
+      }
+      setIsSearching(false);
+      setSearchResults([]);
+      return;
+    }
+
+    // Comienza búsqueda -> mostrar loader
+    setIsSearching(true);
+
+    // Debounce: esperar 300ms desde la última tecla
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      // Buscamos en todos los productos disponibles (recent + featured para mayor cobertura)
+      const all = [...products, ...featuredProducts];
+      const q = searchQuery.toLowerCase().trim();
+      const results = all.filter(
+        p => p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q)
+      );
+
+      setSearchResults(results);
+      setIsSearching(false);
+      searchDebounceRef.current = null;
+    }, 300);
+
+    return () => {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+        searchDebounceRef.current = null;
+      }
+    };
+  }, [searchQuery, products, featuredProducts]);
+
   const loadProducts = async () => {
     try {
       console.log('🛍️ Cargando productos para la tienda...');
       console.log('🔍 Usando URL automática desde variables de entorno');
 
       // 📝 NOTA: Usando /api/simple-products porque funciona para ambas pantallas
-      // TODO: Investigar por qué /api/products no funciona (cuando tengamos tiempo)
       const { response, data } = await apiRequest('/api/simple-products', {
         method: 'GET',
       });
@@ -162,8 +243,6 @@ const HomeScreen = () => {
       console.error('❌ Error de conexión desde inicio:', error);
       console.error('❌ Tipo de error:', error?.constructor?.name);
       console.error('❌ Mensaje de error:', error instanceof Error ? error.message : 'Unknown');
-
-      // Mantener productos de ejemplo si hay error de conexión
     } finally {
       setLoading(false);
     }
@@ -201,8 +280,16 @@ const HomeScreen = () => {
   };
 
   // Ajuste responsivo para todas las tarjetas
+  // Mantengo estructura pero mejoro cálculo para adaptarse a pantallas muy pequeñas/grandes
+  const cardWidth = (() => {
+    // Si la pantalla es muy pequeña, usar 90% del ancho; si es grande, limitar a 45% o máximo 480
+    if (screenWidth < 420) return Math.round(screenWidth * 0.9);
+    if (screenWidth < 900) return Math.round(screenWidth * 0.45);
+    return Math.round(Math.min(480, screenWidth * 0.35));
+  })();
+
   const productCardStyle = {
-    width: screenWidth < 400 ? screenWidth * 0.9 : screenWidth * 0.45,
+    width: cardWidth,
     marginRight: 15,
     backgroundColor: '#111',
     borderRadius: 10,
@@ -237,12 +324,23 @@ const HomeScreen = () => {
     });
   };
 
+  // Safe area: agregar padding extra en android para evitar notch/cámara
+  const safeAreaPaddingTop = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 6 : 0;
+
+  // onTouch handlers para pausar el carrusel cuando el usuario interactúe
+  const handleTouchStart = () => {
+    setIsPaused(true);
+  };
+  const handleTouchEnd = () => {
+    setIsPaused(false);
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: isDark ? '#000' : '#fff' }]}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
-      {/* Header con SafeArea */}
-      <SafeAreaView style={styles.safeArea}>
+      {/* Header con SafeArea (mejorado para notch/cámaras) */}
+      <SafeAreaView style={[styles.safeArea, { paddingTop: safeAreaPaddingTop }]}>
         <View style={styles.header}>
           {/* Logo - Solo en móvil o si el ancho es pequeño */}
           {screenWidth < 768 && (
@@ -272,7 +370,9 @@ const HomeScreen = () => {
               placeholder="Buscar productos..."
               placeholderTextColor="#999"
               value={searchQuery}
-              onChangeText={setSearchQuery}
+              onChangeText={text => {
+                setSearchQuery(text);
+              }}
             />
 
             {/* Botón de búsqueda para desktop */}
@@ -294,8 +394,9 @@ const HomeScreen = () => {
           </View>
         </View>
       </SafeAreaView>
+
       {/* Contenido principal */}
-      <ScrollView style={styles.content}>
+      <ScrollView style={styles.content} keyboardShouldPersistTaps="handled">
         {/* Banner principal */}
         <View style={styles.bannerSection}>
           <Image
@@ -303,11 +404,11 @@ const HomeScreen = () => {
             style={styles.bannerImage}
             resizeMode="cover"
           />
-          <Text style={styles.bannerText}>Una playera, mil miradas</Text>
+          <Text style={styles.phraseText}>"Una playera, mil miradas"</Text>
         </View>
 
         {/* Sección LO ÚLTIMO EN MODA */}
-        <Text style={styles.sectionTitle}>LO ÚLTIMO EN MODA</Text>
+        <Text style={styles.sectionTitle}>LO ÚLTIMO EN MODA MÁS VENDIDO</Text>
 
         {loading ? (
           <View style={styles.loadingContainer}>
@@ -328,32 +429,115 @@ const HomeScreen = () => {
             </TouchableOpacity>
           </View>
         ) : (
-          <FlatList
-            horizontal
-            data={products}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={productCardStyle}
-                onPress={() => navigateToProductDetail(item)}
-              >
-                <Image
-                  source={
-                    item.imageUrl
-                      ? { uri: item.imageUrl }
-                      : { uri: 'https://via.placeholder.com/300x300?text=Producto' }
-                  }
-                  style={productImageStyle}
-                  resizeMode="contain"
-                />
-                <Text style={styles.productName}>{item.name}</Text>
-                <Text style={styles.productPrice}>${item.price.toFixed(2)}</Text>
-                <Text style={styles.productSeason}>Stock: {item.stock}</Text>
-              </TouchableOpacity>
+          <>
+            {/* NUEVO: Zona de resultados de búsqueda (arriba del carrusel).
+                Si searchQuery tiene texto, mostramos los resultados aquí con loader.
+                Esto evita que el carrusel intente scrollear índices que no existen. */}
+            {searchQuery.trim() !== '' && (
+              <View style={{ marginBottom: 10 }}>
+                {isSearching ? (
+                  <View style={[styles.loadingContainer, { paddingVertical: 20 }]}>
+                    <ActivityIndicator size="small" color="#fff" />
+                    <Text style={[styles.loadingText, { marginTop: 8 }]}>Buscando...</Text>
+                  </View>
+                ) : searchResults.length === 0 ? (
+                  <View style={[styles.loadingContainer, { paddingVertical: 20 }]}>
+                    <Text style={styles.loadingText}>No se encontraron resultados</Text>
+                  </View>
+                ) : (
+                  <FlatList
+                    horizontal
+                    data={searchResults}
+                    keyExtractor={(item) => item.id.toString()}
+                    renderItem={({ item }) => (
+                      <TouchableOpacity
+                        style={productCardStyle}
+                        onPress={() => navigateToProductDetail(item)}
+                      >
+                        <Image
+                          source={
+                            item.imageUrl
+                              ? { uri: item.imageUrl }
+                              : { uri: 'https://via.placeholder.com/300x300?text=Producto' }
+                          }
+                          style={productImageStyle}
+                          resizeMode="contain"
+                        />
+                        <Text style={styles.productName}>{item.name}</Text>
+                        {item.description && (
+                          <Text style={styles.productDescription} numberOfLines={2}>
+                            {item.description}
+                          </Text>
+                        )}
+                        <Text style={styles.productPrice}>${item.price.toFixed(2)}</Text>
+                        <Text style={styles.productSeason}>Stock: {item.stock}</Text>
+                      </TouchableOpacity>
+                    )}
+                    contentContainerStyle={styles.productsContainer}
+                    showsHorizontalScrollIndicator={false}
+                    getItemLayout={(data, index) => ({
+                      length: productCardStyle.width + 15,
+                      offset: (productCardStyle.width + 15) * index,
+                      index,
+                    })}
+                  />
+                )}
+              </View>
             )}
-            keyExtractor={(item) => item.id.toString()}
-            contentContainerStyle={styles.productsContainer}
-            showsHorizontalScrollIndicator={false}
-          />
+
+            {/* Carrusel principal (usa featuredProducts para autoplay).
+                Siempre lo dejamos presente (debajo de la zona de búsqueda).
+                Pausa el autoplay si el usuario toca/arrastra (onTouchStart/onTouchEnd). */}
+            <FlatList
+              ref={featuredListRef}
+              horizontal
+              data={featuredProducts}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={productCardStyle}
+                  onPress={() => navigateToProductDetail(item)}
+                >
+                  <Image
+                    source={
+                      item.imageUrl
+                        ? { uri: item.imageUrl }
+                        : { uri: 'https://via.placeholder.com/300x300?text=Producto' }
+                    }
+                    style={productImageStyle}
+                    resizeMode="contain"
+                  />
+
+                  <Text style={styles.productName}>{item.name}</Text>
+
+                  {item.description && (
+                    <Text style={styles.productDescription} numberOfLines={2}>
+                      {item.description}
+                    </Text>
+                  )}
+
+                  <Text style={styles.productPrice}>${item.price.toFixed(2)}</Text>
+                  <Text style={styles.productSeason}>Stock: {item.stock}</Text>
+                </TouchableOpacity>
+              )}
+              keyExtractor={(item) => item.id.toString()}
+              contentContainerStyle={styles.productsContainer}
+              showsHorizontalScrollIndicator={false}
+              pagingEnabled
+              getItemLayout={(data, index) => ({
+                length: productCardStyle.width + 15, // ancho + margenRight
+                offset: (productCardStyle.width + 15) * index,
+                index,
+              })}
+              onTouchStart={handleTouchStart}
+              onTouchEnd={handleTouchEnd}
+              // fallback para cuando scrollToIndex falla
+              onScrollToIndexFailed={() => {
+                // intentar scroll al índice 0 como fallback silencioso
+                featuredListRef.current?.scrollToIndex({ index: 0, animated: false });
+                setCurrentIndex(0);
+              }}
+            />
+          </>
         )}
 
         {/* Banner de preventa */}
@@ -390,6 +574,7 @@ const HomeScreen = () => {
                 resizeMode="contain"
               />
               <Text style={styles.featuredName}>{product.name}</Text>
+              <Text style={styles.productDescription}>{product.description}</Text>
               <Text style={styles.featuredPrice}>${product.price.toFixed(2)}</Text>
             </TouchableOpacity>
           ))}
@@ -551,6 +736,18 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 5,
   },
+  phraseText: {
+    position: 'absolute',
+    bottom: 40,
+    left: 20,
+    color: '#fff',
+    fontSize: 24,
+    fontWeight: 'normal',
+    fontStyle: 'italic',
+    textShadowColor: 'rgba(0,0,0,0.8)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 5,
+  },
   sectionTitle: {
     color: '#fff',
     fontSize: 22,
@@ -568,12 +765,19 @@ const styles = StyleSheet.create({
   productName: {
     color: '#fff',
     fontWeight: 'bold',
-    fontSize: 16,
+    fontSize: 20,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  productDescription: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 15,
     textAlign: 'center',
   },
   productPrice: {
-    color: '#fff',
-    fontSize: 15,
+    color: '#93278f',
+    fontSize: 21,
     marginTop: 5,
   },
   productSeason: {
@@ -608,7 +812,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   presaleTitle: {
-    color: '#fff',
+    color: '#b12badff',
     fontWeight: 'bold',
     fontSize: 20,
     textAlign: 'center',
@@ -646,29 +850,30 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   searchText: {
-    color: '#aaa',
+    color: '#964a94ff',
     fontSize: 14,
   },
   loadingContainer: {
+    color: '#93278f',
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 50,
   },
   loadingText: {
-    color: '#fff',
+    color: '#93278f',
     fontSize: 16,
     marginTop: 10,
   },
   retryButton: {
-    backgroundColor: '#007bff',
+    backgroundColor: '#93278f',
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8,
     marginTop: 15,
   },
   retryButtonText: {
-    color: '#fff',
+    color: '#93278f',
     fontSize: 16,
     fontWeight: 'bold',
   },

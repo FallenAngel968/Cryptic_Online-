@@ -161,3 +161,15 @@ enum AdminLevel {
   MODERATOR
   SUPPORT
 }
+
+model CryptoPayment {
+  id        Int      @id @default(autoincrement())
+  orderId   Int
+  address   String
+  amount    Float
+  status    String   @default("PENDING") // PENDING | CONFIRMED | FAILED
+  txHash    String?  // cuando se confirme
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+

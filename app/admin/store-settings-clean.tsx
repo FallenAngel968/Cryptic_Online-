@@ -104,7 +104,7 @@ export default function StoreSettings() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const [settings, setSettings] = useState<StoreSettings>({
-    storeName: 'CrypticOnline Store',
+    storeName: 'Cryptic E-Commerce',
     storeDescription:
       'Tu tienda online de confianza para productos digitales y servicios especializados',
     storeEmail: 'contact@crypticonline.com',

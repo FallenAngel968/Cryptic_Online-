@@ -6,6 +6,7 @@
 
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ethers } from 'ethers';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -20,7 +21,9 @@ import {
   TouchableOpacity,
   useColorScheme,
   View,
+  ViewStyle,
 } from 'react-native';
+import CryptoPaymentModal from '../components/CryptoPaymentModal';
 import PaymentNotificationOverlay from '../components/PaymentNotificationOverlay';
 import { API_CONFIG, createApiUrl, createAuthHeaders } from '../config/api';
 import { useCarrito } from '../context/CarritoContext';
@@ -57,6 +60,22 @@ const needsTintColor = (cardType: string) => {
   return !['visa', 'mastercard', 'amex'].includes(cardType.toLowerCase());
 };
 
+// Datos de red para criptomonedas
+const NETWORK_PARAMS = {
+  polygon: {
+    chainId: '0x89',
+    chainName: 'Polygon Mainnet',
+    nativeCurrency: {
+      name: 'MATIC',
+      symbol: 'MATIC',
+      decimals: 18,
+    },
+    rpcUrls: ['https://polygon-rpc.com/'],
+    blockExplorerUrls: ['https://polygonscan.com/'],
+  },
+};
+
+// Función principal de la pantalla de pago
 export default function PagoScreen() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
@@ -83,6 +102,7 @@ export default function PagoScreen() {
   const { startPaymentSession } = usePaymentReturnHandler();
   const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
   const carrito = useCarrito();
+  const [showCryptoModal, setShowCryptoModal] = useState(false);
 
   // 🎯 DETECTAR SI ES UN RETRY DESDE DETALLE-PEDIDO
   const isRetryPayment = params.isRetry === 'true';
@@ -1024,6 +1044,166 @@ export default function PagoScreen() {
     }
   };
 
+  // Función para pago con criptomonedas
+  const handleCryptoPayment = async () => {
+    try {
+      if (!window.ethereum) {
+        Alert.alert(
+          'Wallet no detectada',
+          'Por favor instala MetaMask u otra wallet compatible con Web3'
+        );
+        return;
+      }
+
+      setLoading(true);
+
+      // Solicitar conexión a la wallet
+      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+      const userAddress = accounts[0];
+
+      // Solicitar cambio a red Polygon si es necesario
+      try {
+        await window.ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: NETWORK_PARAMS.polygon.chainId }],
+        });
+      } catch (switchError: any) {
+        // Si la red no está agregada, solicitar agregarla
+        if (switchError.code === 4902) {
+          await window.ethereum.request({
+            method: 'wallet_addEthereumChain',
+            params: [NETWORK_PARAMS.polygon],
+          });
+        } else {
+          throw switchError;
+        }
+      }
+
+      // Obtener el token de autenticación
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        Alert.alert('Error', 'Sesión expirada');
+        router.push('/auth/login');
+        return;
+      }
+
+      // Crear la orden en el backend
+      const orderResponse = await fetch(createApiUrl('/api/crypto/create-payment'), {
+        method: 'POST',
+        headers: createAuthHeaders(token),
+        body: JSON.stringify({
+          walletAddress: userAddress,
+          amount: paymentAmount,
+          currency: 'USDT',
+          network: 'polygon',
+          items: params.productoId === 'carrito' ? carrito.items : [{
+            productId: params.productoId,
+            quantity: params.cantidad,
+            price: params.precio
+          }]
+        })
+      });
+
+      const orderData = await orderResponse.json();
+
+      if (!orderResponse.ok) {
+        throw new Error(orderData.error || 'Error al crear la orden');
+      }
+
+      // Configurar el proveedor de Web3
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const signer = provider.getSigner();
+
+      // Datos del contrato USDT en Polygon
+      const usdtAddress = orderData.contractAddress; // Dirección del contrato desde el backend
+      const usdtAbi = ["function approve(address spender, uint256 amount) public returns (bool)"];
+      const usdtContract = new ethers.Contract(usdtAddress, usdtAbi, signer);
+
+      // Aprobar la transacción
+      const approveTx = await usdtContract.approve(
+        orderData.receiverAddress,
+        ethers.utils.parseUnits(orderData.amount.toString(), 6) // USDT usa 6 decimales
+      );
+
+      await approveTx.wait();
+
+      // Confirmar el pago en el backend
+      const confirmResponse = await fetch(createApiUrl(`/api/crypto/confirm-payment/${orderData.orderId}`), {
+        method: 'POST',
+        headers: createAuthHeaders(token),
+        body: JSON.stringify({
+          transactionHash: approveTx.hash,
+          walletAddress: userAddress
+        })
+      });
+
+      const confirmData = await confirmResponse.json();
+
+      if (confirmResponse.ok) {
+        setSuccessModalData({
+          title: '¡Pago Exitoso!',
+          message: 'Tu pago con criptomonedas ha sido procesado correctamente',
+          orderId: orderData.orderId,
+          cardInfo: `USDT en Polygon`
+        });
+        setShowSuccessModal(true);
+
+        // Limpiar carrito si corresponde
+        if (params.productoId === 'carrito') {
+          carrito.clearCart();
+        }
+      } else {
+        throw new Error(confirmData.error || 'Error al confirmar el pago');
+      }
+
+    } catch (error: any) {
+      console.error('Error en pago cripto:', error);
+      Alert.alert('Error', error.message || 'Error al procesar el pago con criptomonedas');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Función al hacer clic en el botón de criptomonedas
+  const handleCryptoPaymentClick = () => {
+    // Calcular el monto total
+    let totalAmount = 0;
+    const isCartPurchase = params.productoId === 'carrito';
+
+    if (isCartPurchase && carrito.items) {
+      totalAmount =
+        carrito.items.reduce(
+          (sum: number, item: any) => sum + item.unit_price * item.quantity,
+          0
+        ) + 50;
+    } else {
+      const productPrice = parseFloat(params.precio as string) || 0;
+      const productQuantity = parseInt(params.cantidad as string) || 1;
+      const shippingCost = parseFloat(params.shippingCost as string) || 50;
+      totalAmount = productPrice * productQuantity + shippingCost;
+    }
+
+    setPaymentAmount(totalAmount);
+    setShowCryptoModal(true);
+  };
+
+  const handleCryptoSuccess = async (transactionHash: string) => {
+    // Mostrar modal de éxito
+    setSuccessModalData({
+      title: '¡Pago Exitoso!',
+      message: 'Tu pago con criptomonedas ha sido procesado correctamente',
+      orderId: currentOrderId || '',
+      cardInfo: 'USDT en Polygon',
+    });
+    setShowSuccessModal(true);
+    setShowCryptoModal(false);
+
+    // Limpiar carrito si corresponde
+    if (params.productoId === 'carrito') {
+      carrito.clearCart();
+    }
+  };
+
   return (
     <>
       <Stack.Screen
@@ -1034,7 +1214,7 @@ export default function PagoScreen() {
           presentation: 'card',
         }}
       />
-      <View style={[styles.container, { backgroundColor: isDark ? '#000' : '#fff' }]}>
+      <View style={[styles.container, { backgroundColor: isDark ? '#000' : '#fff' } as ViewStyle]}>
         {/* Overlay de notificación */}
         <PaymentNotificationOverlay
           show={notification.show}
@@ -1116,7 +1296,7 @@ export default function PagoScreen() {
                         : 'Visa, Mastercard, American Express'}
                     </Text>
                     <Text style={[styles.paymentMethodFeature, { color: '#4CAF50' }]}>
-                      ✓ Pago directo y seguro
+                      Pago directo y seguro
                     </Text>
                   </View>
                   <TouchableOpacity
@@ -1158,7 +1338,7 @@ export default function PagoScreen() {
                       Tarjetas, transferencia, efectivo
                     </Text>
                     <Text style={[styles.paymentMethodFeature, { color: '#00b4d8' }]}>
-                      ✓ Pago seguro e instantáneo
+                      Pago seguro e instantáneo
                     </Text>
                   </View>
                   <TouchableOpacity
@@ -1197,7 +1377,7 @@ export default function PagoScreen() {
                       SPEI, transferencia directa
                     </Text>
                     <Text style={[styles.paymentMethodFeature, { color: '#4CAF50' }]}>
-                      ✓ Sin comisiones adicionales
+                      Sin comisiones adicionales
                     </Text>
                   </View>
                   <TouchableOpacity
@@ -1225,7 +1405,7 @@ export default function PagoScreen() {
                       Pago en efectivo en tienda
                     </Text>
                     <Text style={[styles.paymentMethodFeature, { color: '#E91E63' }]}>
-                      ✓ Más de 20,000 tiendas
+                      Más de 20,000 tiendas
                     </Text>
                   </View>
                   <TouchableOpacity
@@ -1263,7 +1443,7 @@ export default function PagoScreen() {
                       Pago internacional seguro
                     </Text>
                     <Text style={[styles.paymentMethodFeature, { color: '#0070ba' }]}>
-                      ✓ Protección del comprador
+                      Protección del comprador
                     </Text>
                   </View>
                   <TouchableOpacity
@@ -1301,7 +1481,7 @@ export default function PagoScreen() {
                       Bitcoin, USDT, Ethereum
                     </Text>
                     <Text style={[styles.paymentMethodFeature, { color: '#FF9800' }]}>
-                      ✓ Pagos descentralizados
+                      Pagos descentralizados
                     </Text>
                   </View>
                   <TouchableOpacity
@@ -1313,13 +1493,17 @@ export default function PagoScreen() {
                         borderColor: '#FF9800',
                       },
                     ]}
-                    onPress={() => handleAlternativePayment('crypto')}
+                    onPress={handleCryptoPaymentClick}
                     disabled={loading}
                   >
-                    <Image
-                      source={require('../../assets/images/payment-icons/bitcoin.png')}
-                      style={styles.paymentButtonIcon}
-                    />
+                    {loading ? (
+                      <ActivityIndicator size={24} color="#FF9800" />
+                    ) : (
+                      <Image
+                        source={require('../../assets/images/payment-icons/bitcoin.png')}
+                        style={styles.paymentButtonIcon}
+                      />
+                    )}
                   </TouchableOpacity>
                 </View>
               </View>
@@ -1687,6 +1871,19 @@ export default function PagoScreen() {
             </View>
           </View>
         )}
+
+        {/* Modal de pago con crypto */}
+        <CryptoPaymentModal
+          visible={showCryptoModal}
+          amount={paymentAmount}
+          currency="USDT"
+          items={params.productoId === 'carrito' ? carrito.items : undefined}
+          onSuccess={handleCryptoSuccess}
+          onError={(error) => {
+            Alert.alert('Error', error);
+          }}
+          onClose={() => setShowCryptoModal(false)}
+        />
       </View>
     </>
   );
@@ -1879,66 +2076,7 @@ const styles = StyleSheet.create({
   modalContent: {
     width: '90%',
     maxWidth: 400,
-    maxHeight: '80%',
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  cardsContainer: {
-    maxHeight: 300,
-    marginBottom: 20,
-  },
-  cardItem: {
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 2,
-  },
-  cardRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  cardIcon: {
-    width: 32,
-    height: 32,
-    marginRight: 12,
-    resizeMode: 'contain',
-  },
-  cardInfo: {
-    flex: 1,
-  },
-  cardNumber: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  cardHolder: {
-    fontSize: 14,
-    marginBottom: 2,
-  },
-  cardExpiry: {
-    fontSize: 12,
-  },
-  defaultBadge: {
-    backgroundColor: '#4CAF50',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginLeft: 8,
-  },
-  defaultText: {
-    color: '#fff',
-    fontSize: 10,
+    maxHeight: '80',
     fontWeight: '600',
   },
   selectedIndicator: {
@@ -1960,6 +2098,7 @@ const styles = StyleSheet.create({
   },
   addCardButton: {
     borderWidth: 1,
+
     borderColor: '#ddd',
   },
   cancelButton: {

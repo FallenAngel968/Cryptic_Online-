@@ -127,13 +127,13 @@ export default function AdminOrders() {
       <Stack.Screen options={{ title: 'Órdenes', headerShown: true, headerBackTitle: 'Volver' }} />
       <ScrollView
         style={[styles.container, { backgroundColor: isDark ? '#000' : '#f8f9fa' }]}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={styles.contentContainer}
       >
         <Text style={[styles.pageTitle, { color: isDark ? '#fff' : '#000' }]}>
-          📦 Gestión de Órdenes
+          Gestión de Órdenes
         </Text>
         <Text style={[styles.subtitle, { color: isDark ? '#ccc' : '#666' }]}>
-          Próximamente: Administración de pedidos y órdenes
+          
         </Text>
         <View style={styles.statsRow}>
           <View style={[styles.statBox, { backgroundColor: '#007bff' }]}>
@@ -226,9 +226,12 @@ export default function AdminOrders() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    padding: 20,
+  },
+  contentContainer: {
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    paddingBottom: 30,
   },
   loadingContainer: {
     flex: 1,
@@ -239,10 +242,6 @@ const styles = StyleSheet.create({
     color: '#ffc107',
     marginTop: 10,
     fontSize: 16,
-  },
-  listContent: {
-    paddingBottom: 30,
-    alignItems: 'center',
   },
   cardsGrid: {
     flexDirection: 'row',
