@@ -162,12 +162,26 @@ export const payWithSavedCard = async (req, res) => {
       console.log('✅ Email del usuario es válido:', payerEmail);
     }
     
+    // Mapear tipo de tarjeta a payment_method_id de MercadoPago
+    const cardTypeMap = {
+      'visa': 'visa',
+      'mastercard': 'mastercard',
+      'amex': 'amex',
+      'american express': 'amex',
+      'diners': 'diners',
+      'discover': 'discover',
+      'elo': 'elo'
+    };
+    
+    const paymentMethodId = cardTypeMap[card.cardType.toLowerCase()] || 'visa';
+    console.log(`🎯 Tipo de tarjeta detectado: ${card.cardType} → payment_method_id: ${paymentMethodId}`);
+    
     const paymentData = {
       transaction_amount: order.total,
       token: freshToken, // Usar token fresco recién generado
       description: `Pedido #${orderId} - CrypticOnline`,
       installments: 1,
-      payment_method_id: "visa", // Usar visa para la tarjeta de prueba oficial
+      payment_method_id: paymentMethodId, // Usar el tipo de tarjeta correcto
       payer: {
         email: payerEmail,
         identification: {
