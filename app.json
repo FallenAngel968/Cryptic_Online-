@@ -1,10 +1,11 @@
 {
   "expo": {
-    "name": "CRYPTIC",
+    "name": "CRYPTIC-v3.10.5",
     "slug": "CRYPTIC",
-    "version": "1.0.0",
+    "version": "3.10.5",
+    "sdkVersion": "54.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/Logo.png",
     "scheme": "cryptic",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -13,7 +14,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/images/Logo.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true
@@ -26,9 +27,16 @@
     "plugins": [
       "expo-router",
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "La aplicación accede a tus fotos para seleccionar imágenes de productos.",
+          "cameraPermission": "La aplicación accede a tu cámara para tomar fotos de productos."
+        }
+      ],
+      [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/images/Logo.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"

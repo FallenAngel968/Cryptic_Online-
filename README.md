@@ -1,50 +1,101 @@
+<<<<<<< HEAD
 
+=======
+# 🔐 CrypticOnline
+>>>>>>> fa968/BACKEND5.2.0
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+**Plataforma de aprendizaje sobre criptografía y seguridad informática.**
 
-## Get started
+## 📋 Descripción
 
-1. Install dependencies
+CrypticOnline es una aplicación web completa que permite a usuarios aprender conceptos de criptografía, resolver desafíos de seguridad y practicar técnicas de encriptación en un entorno interactivo.
 
-   ```bash
-   npm install
-   ```
+## 🎯 Características principales
 
-2. Start the app
+- ✅ Autenticación y gestión de usuarios
+- ✅ Desafíos criptográficos interactivos
+- ✅ Sistema de puntuación y ranking
+- ✅ Panel de administración
+- ✅ API RESTful robusta
+- ✅ Interfaz responsive
 
-   ```bash
-   npx expo start
-   ```
+## 🚀 Inicio rápido
 
-In the output, you'll find options to open the app in a
+### Requisitos previos
+- Node.js v16+
+- npm o yarn
+- Base de datos (MongoDB/PostgreSQL)
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+### Instalación
 
 ```bash
-npm run reset-project
+# 1. Clonar repositorio
+git clone <repository-url>
+cd CrypticOnline1
+
+# 2. Instalar dependencias
+npm install
+
+# 3. Configurar variables de entorno
+cp .env.example .env
+
+# 4. Iniciar servidor de desarrollo
+npm run dev
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## 📁 Estructura del proyecto
 
-## Learn more
+```
+CrypticOnline1/
+├── backend/              # Servidor Node.js/Express
+│   ├── routes/          # Rutas API
+│   ├── controllers/     # Lógica de negocio
+│   ├── models/          # Esquemas de BD
+│   ├── middleware/      # Middlewares custom
+│   └── config/          # Configuración
+├── frontend/            # Aplicación React/Vue
+│   ├── src/
+│   ├── components/      # Componentes reutilizables
+│   ├── pages/           # Vistas principales
+│   └── services/        # Servicios API
+├── docs/                # Documentación
+└── package.json         # Dependencias del proyecto
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+## 📚 Documentación
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+- **[ARCHITECTURE.md](./docs/ARCHITECTURE.md)** - Diseño de la aplicación
+- **[BACKEND.md](./docs/BACKEND.md)** - Guía del backend
+- **[FRONTEND.md](./docs/FRONTEND.md)** - Guía del frontend
+- **[API_DOCUMENTATION.md](./docs/API_DOCUMENTATION.md)** - Endpoints disponibles
+- **[SETUP_GUIDE.md](./docs/SETUP_GUIDE.md)** - Configuración detallada
+- **[conf.js](./conf.js)** - Configuración centralizada
 
-## Join the community
+## 🔧 Variables de entorno
 
-Join our community of developers creating universal apps.
+Ver `.env.example` o `SETUP_GUIDE.md` para lista completa.
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## 👥 Contribuir
+
+1. Fork el proyecto
+2. Crea una rama (`git checkout -b feature/AmazingFeature`)
+3. Commit cambios (`git commit -m 'Add AmazingFeature'`)
+4. Push a la rama (`git push origin feature/AmazingFeature`)
+5. Abre un Pull Request
+
+## 📝 Licencia
+
+Este proyecto se publica bajo la Licencia MIT, la cual permite el uso, modificación y distribución del código, siempre que se conserve la atribución al autor original. Esta licencia otorga libertad de uso, pero no transfiere la autoría ni los derechos morales del creador.
+
+Todo el contenido de este repositorio —incluyendo código fuente, arquitectura, documentación, configuraciones y decisiones técnicas— constituye propiedad intelectual desarrollada en su totalidad por Angel Valentin Flores Eduardo (GitHub: FallenAngel968).
+
+El desarrollo, diseño y ejecución de este proyecto fueron realizados íntegramente por su autor.
+Cualquier utilización de este trabajo debe reconocer su origen. La reproducción, redistribución o presentación de este proyecto como obra propia, sin atribución adecuada, representa una infracción a los derechos de autor y contradice los estándares profesionales de integridad y ética.
+
+© 2025 Angel Valentin Flores Eduardo. Todos los derechos reservados.
+
+## ❓ Soporte
+
+Para preguntas o problemas, abre un issue en el repositorio.
+
+##

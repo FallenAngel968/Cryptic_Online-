@@ -1,8 +1,28 @@
 import prisma from '../prisma/db.js';
 
-// Crear una notificación
+// Crear una notificación (con verificación de duplicados)
 export const createNotification = async (userId, type, title, message, data = null) => {
   try {
+    // Verificar si ya existe una notificación similar reciente (últimos 5 minutos)
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    
+    const existingNotification = await prisma.notification.findFirst({
+      where: {
+        userId,
+        type,
+        title,
+        message,
+        createdAt: {
+          gte: fiveMinutesAgo
+        }
+      }
+    });
+
+    if (existingNotification) {
+      console.log('Notificación duplicada detectada, saltando creación:', { userId, type, title });
+      return existingNotification;
+    }
+
     const notification = await prisma.notification.create({
       data: {
         userId,
@@ -12,6 +32,8 @@ export const createNotification = async (userId, type, title, message, data = nu
         data,
       },
     });
+    
+    console.log('Notificación creada exitosamente:', { id: notification.id, type, title });
     return notification;
   } catch (error) {
     console.error('Error al crear notificación:', error);
@@ -166,6 +188,57 @@ export const createTestNotifications = async (req, res) => {
     res.json({ message: 'Notificaciones de prueba creadas exitosamente' });
   } catch (error) {
     console.error('Error al crear notificaciones de prueba:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
+// Limpiar notificaciones duplicadas del usuario
+export const cleanDuplicateNotifications = async (req, res) => {
+  const userId = req.user.id;
+
+  try {
+    console.log('Limpiando notificaciones duplicadas para usuario:', userId);
+
+    // Obtener todas las notificaciones del usuario
+    const notifications = await prisma.notification.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    // Agrupar por título y mensaje
+    const seen = new Map();
+    const duplicateIds = [];
+
+    notifications.forEach(notification => {
+      const key = `${notification.title}-${notification.message}`;
+      
+      if (seen.has(key)) {
+        // Si ya vimos esta combinación, es un duplicado
+        duplicateIds.push(notification.id);
+      } else {
+        // Primera vez que vemos esta combinación, la guardamos
+        seen.set(key, notification.id);
+      }
+    });
+
+    if (duplicateIds.length > 0) {
+      // Eliminar duplicados
+      await prisma.notification.deleteMany({
+        where: {
+          id: { in: duplicateIds },
+          userId
+        }
+      });
+      
+      console.log(`Eliminadas ${duplicateIds.length} notificaciones duplicadas`);
+    }
+
+    res.json({ 
+      message: 'Notificaciones duplicadas eliminadas',
+      removed: duplicateIds.length
+    });
+  } catch (error) {
+    console.error('Error al limpiar duplicados:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 };

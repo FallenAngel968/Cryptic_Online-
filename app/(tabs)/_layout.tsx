@@ -1,33 +1,33 @@
-import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { Tabs } from 'expo-router';
 
 export default function TabsLayout() {
   return (
-    <Tabs screenOptions={{ headerShown: false }}>
+    <Tabs screenOptions={{ headerShown: false, tabBarActiveTintColor: '#b12badff' }}>
       <Tabs.Screen
         name="inicio"
         options={{
-          title: 'Inicio',
+          title: 'Tienda',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home-outline" size={size} color={color} />
+            <Ionicons name="home-outline" size={size} color={'#b12badff'} />
           ),
         }}
       />
       <Tabs.Screen
         name="perfil"
         options={{
-          title: 'Perfil',
+          title: 'Mi Cuenta',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-outline" size={size} color={color} />
+            <Ionicons name="person-outline" size={size} color={'#b12badff'} />
           ),
         }}
       />
       <Tabs.Screen
         name="carrito"
         options={{
-          title: 'Carrito',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="cart-outline" size={size} color={color} />
+          title: 'Mi Carrito',
+          tabBarIcon: ({  size }) => (
+            <Ionicons name="cart-outline" size={size} color={'#b12badff'} />
           ),
         }}
       />
@@ -36,7 +36,7 @@ export default function TabsLayout() {
         options={{
           title: 'Notificaciones',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="notifications-outline" size={size} color={color} />
+            <Ionicons name="notifications-outline" size={size} color={'#b12badff'} />
           ),
         }}
       />

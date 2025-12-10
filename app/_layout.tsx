@@ -7,8 +7,12 @@ import 'react-native-reanimated';
 
 import { useColorScheme as useAppColorScheme } from '@/hooks/useColorScheme';
 import { CarritoProvider } from './context/CarritoContext';
+import { usePaymentReturnHandler } from './hooks/usePaymentReturnHandler';
 
 export default function RootLayout() {
+  // Hook para detectar retorno de pagos
+  usePaymentReturnHandler();
+
   const colorScheme = useAppColorScheme();
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';

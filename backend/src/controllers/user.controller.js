@@ -1,3 +1,9 @@
+//CONTROLADOR FUNCIOANDO PAR AEL REGISTRO Y LOGIN DE USUARIOS
+// Este controlador maneja el registro, login, obtención y actualización del perfil de usuario, así como el cambio de contraseña.
+//LA RUTA QUE SIGUE ESTE CONTROLADOR ES LA SIGUIENTE: /api/users QUE LLEGA A auth.middleware.js
+
+
+
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import prisma from '../prisma/db.js';
@@ -58,7 +64,7 @@ export const registerUser = async (req, res) => {
 
     // Genera el token JWT
     const token = jwt.sign(
-      { id: newUser.id, email: newUser.email, role: newUser.role },
+      { userId: newUser.id, email: newUser.email, role: newUser.role },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
@@ -113,7 +119,7 @@ export const loginUser = async (req, res) => {
     // Generar token JWT con más información
     const token = jwt.sign(
       {
-        id: user.id,
+        userId: user.id,
         email: user.email,
         role: user.role,
       },
@@ -142,22 +148,20 @@ export const loginUser = async (req, res) => {
   }
 };
 
-// Función para obtener perfil del usuario autenticado
+// Obtener perfil del usuario
 export const getUserProfile = async (req, res) => {
   try {
-    // El middleware ya validó el token y agregó req.user
     const userId = req.user.id;
-
-    console.log('Obteniendo perfil para usuario ID:', userId);
+    console.log('👤 Obteniendo perfil para usuario:', userId);
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
         id: true,
+        email: true,
         nombres: true,
         apellidoPaterno: true,
         apellidoMaterno: true,
-        email: true,
         telefono: true,
         calle: true,
         numero: true,
@@ -166,20 +170,161 @@ export const getUserProfile = async (req, res) => {
         estado: true,
         codigoPostal: true,
         referencias: true,
-        role: true,
-        createdAt: true,
-      },
+        createdAt: true
+      }
     });
 
     if (!user) {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
 
-    res.status(200).json({
-      user,
-    });
+    console.log('✅ Perfil obtenido para:', user.email);
+    res.json({ user });
+
   } catch (error) {
-    console.error('Error al obtener perfil:', error);
+    console.error('❌ Error obteniendo perfil:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
+// Actualizar perfil del usuario
+export const updateUserProfile = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const {
+      nombres,
+      apellidoPaterno,
+      apellidoMaterno,
+      telefono,
+      calle,
+      numero,
+      colonia,
+      ciudad,
+      estado,
+      codigoPostal,
+      referencias
+    } = req.body;
+
+    console.log('📝 Actualizando perfil para usuario:', userId);
+    console.log('📋 Datos recibidos:', {
+      nombres,
+      apellidoPaterno,
+      apellidoMaterno,
+      telefono,
+      ciudad,
+      estado
+    });
+
+    // Validaciones básicas
+    if (!nombres || !apellidoPaterno || !apellidoMaterno) {
+      return res.status(400).json({
+        error: 'Nombres y apellidos son requeridos'
+      });
+    }
+
+    if (!telefono || !calle || !numero || !colonia || !ciudad || !estado || !codigoPostal) {
+      return res.status(400).json({
+        error: 'Todos los campos de dirección son requeridos'
+      });
+    }
+
+    // Actualizar usuario
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        nombres: nombres.trim(),
+        apellidoPaterno: apellidoPaterno.trim(),
+        apellidoMaterno: apellidoMaterno.trim(),
+        telefono: telefono.trim(),
+        calle: calle.trim(),
+        numero: numero.trim(),
+        colonia: colonia.trim(),
+        ciudad: ciudad.trim(),
+        estado: estado.trim(),
+        codigoPostal: codigoPostal.trim(),
+        referencias: referencias ? referencias.trim() : null
+      },
+      select: {
+        id: true,
+        email: true,
+        nombres: true,
+        apellidoPaterno: true,
+        apellidoMaterno: true,
+        telefono: true,
+        calle: true,
+        numero: true,
+        colonia: true,
+        ciudad: true,
+        estado: true,
+        codigoPostal: true,
+        referencias: true
+      }
+    });
+
+    console.log('✅ Perfil actualizado exitosamente para:', updatedUser.email);
+    
+    res.json({
+      message: 'Perfil actualizado exitosamente',
+      user: updatedUser
+    });
+
+  } catch (error) {
+    console.error('❌ Error actualizando perfil:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
+// Cambiar contraseña
+export const changePassword = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { currentPassword, newPassword } = req.body;
+
+    console.log('🔒 Cambio de contraseña para usuario:', userId);
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        error: 'Contraseña actual y nueva son requeridas'
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        error: 'La nueva contraseña debe tener al menos 6 caracteres'
+      });
+    }
+
+    // Obtener usuario con contraseña
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    // Verificar contraseña actual
+    const isValidPassword = await bcrypt.compare(currentPassword, user.password);
+    if (!isValidPassword) {
+      return res.status(400).json({
+        error: 'Contraseña actual incorrecta'
+      });
+    }
+
+    // Encriptar nueva contraseña
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+
+    // Actualizar contraseña
+    await prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedNewPassword }
+    });
+
+    console.log('✅ Contraseña actualizada exitosamente');
+    res.json({ message: 'Contraseña actualizada exitosamente' });
+
+  } catch (error) {
+    console.error('❌ Error cambiando contraseña:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 };
