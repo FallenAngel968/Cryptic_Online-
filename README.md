@@ -1,12 +1,12 @@
-# 🛒🛍️ CrypticOnline - E-Commerce Platform
+<h1 align="center">🛒🛍️ CrypticOnline - E-Commerce Platform</h1>
 
 **Plataforma de e-commerce moderno con soporte para pagos con tarjeta de crédito, criptomonedas (USDT en Polygon) y autenticación segura.**
 
-## 📋 Descripción
+## 📋 DESCRIPCIÓN
 
 CrypticOnline es una aplicación completa de e-commerce desarrollada con React Native/Expo en el frontend y Node.js/Express en el backend. Incluye sistema de pagos integrado con Mercado Pago, soporte para blockchain (Polygon/USDT), Firebase Storage para gestión de imágenes, y un panel de administración completo.
 
-## 🎯 Características principales
+## 🎯 CARACTERÍSTICAS PRINCIPALES
 
 - ✅ Autenticación JWT con roles (admin, customer)
 - ✅ Gestión de productos con imágenes en Firebase Storage
@@ -19,7 +19,7 @@ CrypticOnline es una aplicación completa de e-commerce desarrollada con React N
 - ✅ API RESTful robusta con seguridad
 - ✅ Interfaz responsive y moderna
 
-## 🚀 Inicio rápido
+## 🚀 INICIO RÁPIDO
 
 ### Requisitos previos
 - Node.js v22+
@@ -63,7 +63,7 @@ npm start
 npm start
 ```
 
-## 📁 Estructura del proyecto
+## 📁 ESTRUCTURA DEL PROYECTO
 
 ```
 CrypticOnline1/
@@ -113,7 +113,7 @@ CrypticOnline1/
 └── package.json                  # Dependencias frontend
 ```
 
-## 📚 Documentación
+## 📚 DOCUMENTACIÓN
 
 Para información detallada sobre arquitectura, API endpoints y configuración:
 
@@ -123,7 +123,7 @@ Para información detallada sobre arquitectura, API endpoints y configuración:
 - **[FRONTEND.md](./docs/FRONTEND.md)** - Guía del cliente frontend
 - **[SETUP_GUIDE.md](./docs/SETUP_GUIDE.md)** - Guía completa de configuración
 
-## 🚀 Despliegue
+## 🚀 DESPLIEGUE
 
 ### Backend en Render
 ```bash
@@ -140,7 +140,7 @@ Para información detallada sobre arquitectura, API endpoints y configuración:
 # Output Directory: .expo/web
 ```
 
-## 🔌 Endpoints principales
+## 🔌 ENDPOINTS PRINCIPALES
 
 ### Autenticación
 - `POST /auth/login` - Login de usuario
@@ -162,7 +162,7 @@ Para información detallada sobre arquitectura, API endpoints y configuración:
 - `GET /api/orders` - Listar órdenes del usuario
 - `GET /api/orders/:orderId` - Obtener detalle de orden
 
-## 🔧 Stack tecnológico
+## 🔧 STACK TECNOLÓGICO
 
 ### Frontend
 - **React Native / Expo** - Framework móvil cross-platform
@@ -187,7 +187,7 @@ Para información detallada sobre arquitectura, API endpoints y configuración:
 - **Firebase Storage** - Almacenamiento de imágenes de productos
 - **Polygon Mainnet** - Red blockchain para USDT
 
-## 🔐 Seguridad
+## 🔐 SEGURIDAD
 
 - Autenticación JWT con tokens seguros
 - Validación de entrada en todas las rutas
@@ -196,7 +196,7 @@ Para información detallada sobre arquitectura, API endpoints y configuración:
 - Middleware de autenticación en rutas protegidas
 - Validación de permisos por rol (admin/customer)
 
-## 👥 Contribuir
+## 👥 CONTRIBUIR
 
 1. Fork el proyecto
 2. Crea una rama (`git checkout -b feature/AmazingFeature`)
@@ -204,7 +204,7 @@ Para información detallada sobre arquitectura, API endpoints y configuración:
 4. Push a la rama (`git push origin feature/AmazingFeature`)
 5. Abre un Pull Request
 
-## 📄 Licencia y Propiedad Intelectual
+## 📄 LICENCIA Y PROPIEDAD INTELECTUAL
 
 Este proyecto se publica bajo la Licencia MIT, la cual permite el uso, modificación y distribución del código, siempre que se conserve la atribución al autor original. Esta licencia otorga libertad de uso, pero no transfiere la autoría ni los derechos morales del creador.
 
@@ -216,6 +216,10 @@ Cualquier utilización de este trabajo debe reconocer su origen. La reproducció
 © 2025 Angel Valentin Flores Eduardo. Todos los derechos reservados.
 
 
-## ❓ Soporte
+## ❓ SOPORTE
 
 Para preguntas o problemas, abre un issue en el repositorio.
+
+Ó comunicate con alguien de nosotros. 
+
+# .-
