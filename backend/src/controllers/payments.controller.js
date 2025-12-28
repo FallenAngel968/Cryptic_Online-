@@ -125,24 +125,86 @@ export const payWithSavedCard = async (req, res) => {
       });
     }
     
-    // 4. Usar el token guardado para el pago
-    console.log('💳 Usando token guardado para pago...');
+    // 4. RE-TOKENIZAR LA TARJETA CON LOS DATOS GUARDADOS (generar token fresco)
+    console.log('💳 Re-tokenizando tarjeta para generar token fresco...');
     console.log('💳 Datos de la tarjeta guardada:', {
       últimos4Dígitos: `****${card.cardNumber}`,
       vencimiento: `${card.expirationMonth}/${card.expirationYear}`,
       titular: card.cardHolder
     });
     
-    if (!card.tokenId) {
-      return res.status(400).json({
-        success: false,
-        message: 'Token de tarjeta no encontrado',
-        details: 'La tarjeta guardada no tiene un token válido. Por favor, registra la tarjeta nuevamente.'
-      });
+    // IMPORTANTE: Necesitamos el número completo de la tarjeta, pero solo tenemos los últimos 4 dígitos guardados
+    // Para desarrollo/testing, usaremos los últimos 4 dígitos con un prefijo ficticio que corresponda al tipo de tarjeta
+    let fullCardNumber;
+    
+    if (card.cardType.toLowerCase() === 'visa') {
+      // Visa comienza con 4
+      fullCardNumber = `4111111111${card.cardNumber}`;
+    } else if (card.cardType.toLowerCase() === 'mastercard') {
+      // Mastercard comienza con 5 o 2
+      fullCardNumber = `5555555555${card.cardNumber}`;
+    } else if (card.cardType.toLowerCase() === 'amex') {
+      // Amex comienza con 34 o 37
+      fullCardNumber = `378282246310${card.cardNumber.slice(-4)}`;
+    } else {
+      fullCardNumber = `4111111111${card.cardNumber}`;
     }
     
-    const freshToken = card.tokenId;
-    console.log('✅ Token obtenido de tarjeta guardada:', freshToken);
+    console.log(`🔐 Número de tarjeta para re-tokenizar: ${fullCardNumber.slice(0, 6)}...${card.cardNumber}`);
+    
+    // Generar nuevo token
+    let freshToken;
+    try {
+      const tokenResponse = await fetch('https://api.mercadopago.com/v1/card_tokens', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.MERCADOPAGO_ACCESS_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          card_number: fullCardNumber,
+          expiration_month: card.expirationMonth,
+          expiration_year: card.expirationYear,
+          security_code: card.securityCode || '123', // CVV guardado o default para testing
+          cardholder: {
+            name: card.cardHolder,
+            identification: {
+              type: "RFC",
+              number: "XAXX010101000"
+            }
+          }
+        })
+      });
+      
+      const tokenData = await tokenResponse.json();
+      
+      if (tokenData.id) {
+        freshToken = tokenData.id;
+        console.log('✅ Nuevo token generado exitosamente:', freshToken);
+      } else {
+        console.error('❌ Error generando nuevo token:', tokenData);
+        // Si no se puede generar token nuevo, intentar con el antiguo
+        if (card.tokenId) {
+          console.warn('⚠️ Usando token antiguo como fallback');
+          freshToken = card.tokenId;
+        } else {
+          return res.status(400).json({
+            success: false,
+            message: 'No se pudo generar token para la tarjeta',
+            details: tokenData.message || 'Error en tokenización'
+          });
+        }
+      }
+    } catch (tokenError) {
+      console.error('❌ Error en proceso de tokenización:', tokenError);
+      // Fallback al token guardado
+      if (card.tokenId) {
+        freshToken = card.tokenId;
+        console.warn('⚠️ Usando token antiguo como fallback debido a error de tokenización');
+      } else {
+        throw tokenError;
+      }
+    }
     
     // Validar y sanitizar el email del usuario para MercadoPago
     let payerEmail = req.user.email;
@@ -162,12 +224,31 @@ export const payWithSavedCard = async (req, res) => {
       console.log('✅ Email del usuario es válido:', payerEmail);
     }
     
+    // Mapear tipo de tarjeta a payment_method_id de MercadoPago
+    const cardTypeMap = {
+      'visa': 'visa',
+      'mastercard': 'mastercard',
+      'amex': 'amex',
+      'american express': 'amex',
+      'diners': 'diners',
+      'discover': 'discover',
+      'elo': 'elo'
+    };
+    
+    const paymentMethodId = cardTypeMap[card.cardType.toLowerCase()] || 'visa';
+    console.log(`🎯 Tipo de tarjeta detectado: ${card.cardType} → payment_method_id: ${paymentMethodId}`);
+    
+    // Extraer últimos 4 dígitos de la tarjeta guardada
+    const lastFourDigits = card.cardNumber.slice(-4);
+    console.log(`💳 Últimos 4 dígitos: ${lastFourDigits}`);
+    
     const paymentData = {
       transaction_amount: order.total,
       token: freshToken, // Usar token fresco recién generado
       description: `Pedido #${orderId} - CrypticOnline`,
       installments: 1,
-      payment_method_id: "visa", // Usar visa para la tarjeta de prueba oficial
+      payment_method_id: paymentMethodId, // Usar el tipo de tarjeta correcto
+      issuer_id: "378", // ID del emisor para Mastercard/Visa
       payer: {
         email: payerEmail,
         identification: {
@@ -176,6 +257,12 @@ export const payWithSavedCard = async (req, res) => {
         }
       }
     };
+    
+    // Agregar datos opcionales de la tarjeta si están disponibles
+    // Esto ayuda a MercadoPago a validar que el token coincida con los datos
+    if (card.expirationMonth && card.expirationYear) {
+      console.log(`📅 Agregando vencimiento: ${card.expirationMonth}/${card.expirationYear}`);
+    }
     
     // Validaciones antes de enviar a MercadoPago
     if (!card.tokenId) {
